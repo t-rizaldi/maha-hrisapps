@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\JobTitle;
 use Exception;
@@ -29,7 +31,49 @@ class AuthController extends Controller
             if($validator->fails()) {
                 return response()->json([
                     'status'    => 'error',
+                    'code'      => 400,
                     'message'   => $validator->errors()
+                ], 400);
+            }
+
+            // BRANCH CHECK
+            $branch = Branch::where('branch_code', $request->branch_code)->first();
+
+            if(empty($branch)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Branch not found'
+                ], 200);
+            }
+
+            // DEPARTMENT CHECK
+            $department = Department::find($request->department_id);
+
+            if(empty($department)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Department not found'
+                ], 200);
+            }
+
+            // JOB TITLE CHECK
+            $jobTitle = JobTitle::find($request->job_title_id);
+
+            if(empty($jobTitle)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Job title not found'
+                ], 200);
+            }
+
+            if($jobTitle->department_id != $request->department_id) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'job title does not match the department'
                 ], 400);
             }
 
@@ -57,12 +101,17 @@ class AuthController extends Controller
 
             return response()->json([
                 'status'    => 'success',
-                'employee'  => $employee
-            ], 200);
+                'code'      => 201,
+                'message'   => 'OK',
+                'data'      => [
+                    'id'    => $employee->id
+                ]
+            ], 201);
 
         } catch (Exception $e) {
             return response()->json([
                 'status'    => 'error',
+                'code'      => 400,
                 'message'   => $e->getMessage()
             ], 400);
         }

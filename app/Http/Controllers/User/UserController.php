@@ -50,21 +50,21 @@ class UserController extends Controller
     // LOGIN
     public function login(Request $request)
     {
-        // cek validasi
-        $validator = Validator::make($request->all(), [
-            'email'     => 'required|email',
-            'password'  => 'required'
-        ]);
-
-        if($validator->fails()) {
-            return response()->json([
-                'status'    => 'error',
-                'message'   => $validator->errors()
-            ], 400);
-        }
-
-
         try {
+            // cek validasi
+            $validator = Validator::make($request->all(), [
+                'email'     => 'required|email',
+                'password'  => 'required'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors()
+                ], 400);
+            }
+
             // POST DATA
             $data = [
                 'email'     => $request->email,
@@ -106,8 +106,12 @@ class UserController extends Controller
 
             return response()->json([
                 'status'        => 'success',
-                'token'         => $token,
-                'refresh_token' => $refreshToken
+                'code'          => 200,
+                'message'       => 'OK',
+                'data'          => [
+                    'token'         => $token,
+                    'refresh_token' => $refreshToken
+                ]
             ], 200);
 
         } catch (ClientException $e) {
@@ -122,9 +126,10 @@ class UserController extends Controller
 
     public function logout(Request $request)
     {
-        $user = $request->get('token_payload');
 
         try {
+            $user = $request->get('token_payload');
+
             $data = [
                 'user_id'   => $user['id']
             ];
@@ -149,20 +154,22 @@ class UserController extends Controller
     // REFRESH TOKEN
     public function refreshToken(Request $request)
     {
-        // cek validasi
-        $validator = Validator::make($request->all(), [
-            'refresh_token' => 'required',
-            'email'         => 'required|email'
-        ]);
-
-        if($validator->fails()) {
-            return response()->json([
-                'status'    => 'error',
-                'message'   => $validator->errors()
-            ], 400);
-        }
 
         try {
+            // cek validasi
+            $validator = Validator::make($request->all(), [
+                'refresh_token' => 'required',
+                'email'         => 'required|email'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors()
+                ], 400);
+            }
+            
             // cek refresh token
             $responseData = $this->client->get("$this->api/refresh-token/$request->refresh_token")->getBody()->getContents();
             $response = json_decode($responseData, true);
@@ -177,6 +184,7 @@ class UserController extends Controller
             if ($expirationTimestamp !== null && $expirationTimestamp < $currentTimestamp) {
                 return response()->json([
                     'status'    => 'error',
+                    'code'      => 400,
                     'message'   => 'Refresh token expired'
                 ], 400);
             }
@@ -187,6 +195,7 @@ class UserController extends Controller
             if($request->email != $tokenData['email']) {
                 return response()->json([
                     'status'    => 'error',
+                    'code'      => 400,
                     'message'   => 'email is not valid'
                 ], 400);
             }
@@ -202,6 +211,8 @@ class UserController extends Controller
 
             return response()->json([
                 'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
                 'token'     => $token
             ], 200);
 
@@ -221,7 +232,6 @@ class UserController extends Controller
         try {
             $responseData = $this->client->get("$this->api/user")->getBody()->getContents();
             $response = json_decode($responseData, true);
-
 
             return response()->json($response, 200);
 

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\JobTitleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +15,10 @@ Route::get('/user', function (Request $request) {
 // AUTH
 Route::controller(AuthController::class)->group(function() {
     Route::post('/register', 'register')->name('register');
+    Route::post('/login', 'login')->name('login');
+    Route::post('/logout', 'logout')->name('logout');
+    Route::post('/refresh-token', 'refreshTokenStore')->name('refresh-token.store');
+    Route::get('/refresh-token/{data}', 'getRefreshToken')->name('refresh-token');
 });
 
 // DEPARTMENT
@@ -69,4 +74,11 @@ Route::controller(JobTitleController::class)->group(function() {
             Route::delete('/{data}', 'delete')->name('.delete');
         });
     });
+});
+
+// EMPLOYEE
+Route::controller(EmployeeController::class)->group(function() {
+    Route::post('/verify-register', 'verifyRegister')->name('verify-register');
+    Route::get('/', 'index')->name('get-all-employees');
+    Route::get('/{data}', 'getEmployeeById')->name('get-employee');
 });

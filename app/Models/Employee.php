@@ -46,4 +46,8 @@ class Employee extends Model
         'created_at',
         'updated_at',
     ];
+
+    public function contract() {
+        return $this->belongsTo(EmployeeContract::class, 'contract_id');
+    }
 }

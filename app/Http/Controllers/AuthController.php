@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\JobTitle;
+use App\Models\RefreshToken;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -108,6 +109,201 @@ class AuthController extends Controller
                 ]
             ], 201);
 
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    // LOGIN
+    public function login(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'email'         => 'required|email',
+                'password'      => 'required'
+            ]);
+
+            // cek validasi request
+            if ($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors()
+                ], 400);
+            }
+
+            // cek employee
+            $employee = Employee::with(['contract'])->where('email', $request->email)->first();
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'email or password wrong'
+                ], 400);
+            }
+
+            // cek invalid password
+            $isValidPassword = Hash::check($request->password, $employee->password);
+
+            if(!$isValidPassword) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'email or password wrong'
+                ], 400);
+            }
+
+            // status check
+            if($employee->status == 0) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'Unverified account'
+                ], 400);
+            }
+
+            if($employee->status == 4) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'Inactive account'
+                ], 400);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employee
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    // LOGOUT
+    public function logout(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'employee_id'   => 'required'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors()
+                ], 400);
+            }
+
+            $employeeId = $request->employee_id;
+            $employee = Employee::find($employeeId);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Employee not found'
+                ], 200);
+            }
+
+            RefreshToken::where('employee_id', $employeeId)->delete();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'Refresh token deleted'
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    // GET REFRESH TOKEN
+    public function getRefreshToken($rt = null)
+    {
+        try {
+            $refreshToken = RefreshToken::where('token', $rt)->first();
+
+            if(empty($refreshToken)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Invalid token'
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $refreshToken
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    // STORE REFRESH TOKEN
+    public function refreshTokenStore(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'employee_id'       => 'required',
+                'refresh_token'     => 'required'
+            ]);
+
+            // cek validasi
+            if($validator->fails()) {
+                return response()->json([
+                    'status'        => 'error',
+                    'code'          => 400,
+                    'message'       => $validator->errors()
+                ], 400);
+            }
+
+            // cek employee
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Employee not found'
+                ], 200);
+            }
+
+            // create refresh token
+            $createdRefreshToken = RefreshToken::create([
+                'token'         => $request->refresh_token,
+                'employee_id'   => $request->employee_id
+            ]);
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 201,
+                'message'   => 'OK',
+                'id'        => $createdRefreshToken->id
+            ], 201);
         } catch (Exception $e) {
             return response()->json([
                 'status'    => 'error',

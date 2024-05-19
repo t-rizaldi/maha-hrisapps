@@ -3,7 +3,9 @@
 use App\Http\Controllers\Employee\BranchController;
 use App\Http\Controllers\Employee\DepartmentController;
 use App\Http\Controllers\Employee\EmployeeController;
-use App\Http\Controllers\Employeer\JobTitleController;
+use App\Http\Controllers\Employee\JobTitleController;
+use App\Http\Controllers\Letter\CategoryController;
+use App\Http\Controllers\Letter\LetterController;
 use App\Http\Controllers\User\UserController;
 use App\Http\Middleware\VerifyToken;
 use Illuminate\Http\Request;
@@ -22,6 +24,7 @@ Route::controller(UserController::class)->group(function() {
 
             Route::middleware(VerifyToken::class)->group(function() {
                 Route::get('/', 'getUsers')->name('.user');
+                Route::get('/{data}', 'getUserById')->name('.user.detail');
                 Route::post('/logout', 'logout')->name('.user');
             });
         });
@@ -29,8 +32,24 @@ Route::controller(UserController::class)->group(function() {
 });
 
 // EMPLOYEE
-Route::controller(EmployeeController::class)->group(function() {
-    Route::post('/register', 'register')->name('register');
+Route::prefix('employee')->group(function() {
+    Route::name('employee')->group(function() {
+
+        Route::controller(EmployeeController::class)->group(function() {
+            Route::post('/register', 'register')->name('.register');
+            Route::post('/login', 'login')->name('.login');
+            Route::post('/refresh-token', 'refreshToken')->name('.refresh-token');
+
+            Route::middleware(VerifyToken::class)->group(function() {
+                Route::post('/verify-register', 'verifyRegister')->name('.verify-register');
+                Route::post('/logout', 'logout')->name('.logout');
+
+                Route::get('/', 'index');
+                Route::get('/{data}', 'getEmployeeById')->name('.detail');
+            });
+        });
+
+    });
 });
 
 // BRANCH
@@ -96,6 +115,36 @@ Route::controller(JobTitleController::class)->group(function() {
                 Route::delete('/{data}', 'delete')->name('.delete');
             });
 
+        });
+    });
+});
+
+// LETTER
+Route::prefix('letter')->group(function() {
+    Route::name('letter')->group(function() {
+        // category
+        Route::controller(CategoryController::class)->group(function() {
+            Route::prefix('category')->group(function() {
+                Route::name('.category')->group(function() {
+                    Route::middleware(VerifyToken::class)->group(function() {
+                        Route::get('/', 'index');
+                        Route::post('/', 'store')->name('.store');
+                        Route::put('/{data}', 'update')->name('.update');
+                        Route::delete('/{data}', 'delete')->name('.delete');
+                        Route::get('/{data}', 'detail')->name('.detail');
+                        Route::get('/type/{data}', 'getByType')->name('.type');
+                    });
+                });
+            });
+        });
+
+        // letter list
+        Route::controller(LetterController::class)->group(function() {
+            Route::middleware(VerifyToken::class)->group(function() {
+                Route::get('/', 'index');
+                Route::post('/', 'store')->name('.store');
+                Route::get('/new-number/company/{data}', 'getNewCompanyLetterNumber')->name('.company-new-number');
+            });
         });
     });
 });

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Employeer;
+namespace App\Http\Controllers\Employee;
 
 use App\Http\Controllers\Controller;
 use GuzzleHttp\Client;

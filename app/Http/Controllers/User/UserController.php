@@ -3,25 +3,14 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use Carbon\Carbon;
 use DateTimeImmutable;
-use DateTimeZone;
-use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
-use Lcobucci\Clock\SystemClock;
-use Lcobucci\JWT\Encoding\ChainedFormatter;
-use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Signer\Hmac\Sha256;
-use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\Validation\Constraint\RelatedTo;
-use Lcobucci\JWT\Validation\Constraint\ValidAt;
-use Lcobucci\JWT\Validation\Validator as JwtValidator;
 
 class UserController extends Controller
 {
@@ -136,11 +125,13 @@ class UserController extends Controller
 
             $responseData = $this->client->post("$this->api/logout", [
                                 'json'  => $data
-                            ])->getBody()->getContents();
+                            ]);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
 
-            $response = json_decode($responseData, true);
+            $response = json_decode($body, true);
 
-            return response()->json($response, 200);
+            return response()->json($response, $statusCode);
         } catch (ClientException $e) {
             $responseData = $e->getResponse();
             $statusCode = $responseData->getStatusCode();
@@ -169,10 +160,15 @@ class UserController extends Controller
                     'message'   => $validator->errors()
                 ], 400);
             }
-            
+
             // cek refresh token
-            $responseData = $this->client->get("$this->api/refresh-token/$request->refresh_token")->getBody()->getContents();
-            $response = json_decode($responseData, true);
+            $responseData = $this->client->get("$this->api/refresh-token/$request->refresh_token");
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+
+            // status check
+            if($response['status'] == 'error') return response()->json($response, $statusCode);
 
             $refreshToken = $response['data']['token'];
             $refreshTokenParse = $this->configuration->parser()->parse((string) $refreshToken);
@@ -227,13 +223,36 @@ class UserController extends Controller
     }
 
     // GET USER
-    public function getUsers(Request $request)
+    public function getUsers()
     {
         try {
-            $responseData = $this->client->get("$this->api/user")->getBody()->getContents();
-            $response = json_decode($responseData, true);
+            $responseData = $this->client->get("$this->api/user");
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
 
-            return response()->json($response, 200);
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    // GET USER BY ID
+    public function getUserById($id = null)
+    {
+        try {
+            $responseData = $this->client->get("$this->api/user/$id");
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
 
         } catch (ClientException $e) {
             $responseData = $e->getResponse();

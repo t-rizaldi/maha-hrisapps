@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
+use App\Models\EmployeeBiodata;
 use App\Models\EmployeeContract;
 use Exception;
 use GuzzleHttp\Client;
@@ -25,7 +26,7 @@ class EmployeeController extends Controller
     public function index()
     {
         try {
-            $employee = Employee::with(['contract'])->get();
+            $employee = Employee::with(['contract', 'biodata'])->get();
 
             if(count($employee) < 1) {
                 return response()->json([
@@ -127,7 +128,7 @@ class EmployeeController extends Controller
             }
 
             // employee register is verified
-            if($employee->status == 1) {
+            if($employee->status > 0) {
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
@@ -305,6 +306,251 @@ class EmployeeController extends Controller
                     'employee'  => Employee::find($request->employee_id),
                     'contract'  => $employeeContract
                 ]
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    // ========================================
+
+    /*==========================
+            BIODATA
+    ==========================*/
+    // BIODATA
+    public function storeEmployeeBiodata(Request $request)
+    {
+        try {
+            // Validation Check
+            $validator = Validator::make($request->all(), [
+                'employee_id'               => 'required|unique:employee_biodatas,employee_id',
+                'fullname'                  => 'required',
+                'nickname'                  => 'required',
+                'nik'                       => 'required|digits:16|unique:employee_biodatas,nik',
+                'identity_province'         => 'required|numeric',
+                'identity_regency'          => 'required|numeric',
+                'identity_district'         => 'required|numeric',
+                'identity_village'          => 'required|numeric',
+                'identity_postal_code'      => 'required|numeric:digits:5',
+                'identity_address'          => 'required',
+                'current_province'          => 'required|numeric',
+                'current_regency'           => 'required|numeric',
+                'current_district'          => 'required|numeric',
+                'current_village'           => 'required|numeric',
+                'current_postal_code'       => 'required|numeric:digits:5',
+                'current_address'           => 'required',
+                'residence_status'          => 'required',
+                'phone_number'              => 'required|numeric|unique:employee_biodatas,phone_number',
+                'emergency_phone_number'    => 'required|numeric',
+                'start_work'                => 'required',
+                'gender'                    => 'required',
+                'birth_place'               => 'required',
+                'birth_date'                => 'required',
+                'religion'                  => 'required',
+                'blood_type'                => 'required',
+                'weight'                    => 'required|numeric',
+                'height'                    => 'required|numeric',
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors()
+                ], 400);
+            }
+
+            if($request->phone_number == $request->emergency_phone_number) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'Nomor HP dan kontak darurat tidak boleh sama'
+                ], 400);
+            }
+
+            if($request->gender != 'L' && $request->gender != 'P') {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'Pilihan gender L atau P'
+                ], 400);
+            }
+
+            // Get Employee
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan'
+                ], 200);
+            }
+
+            // store
+            $data = [
+                'employee_id'               => $request->employee_id,
+                'fullname'                  => $request->fullname,
+                'nickname'                  => $request->nickname,
+                'nik'                       => $request->nik,
+                'identity_province'         => $request->identity_province,
+                'identity_regency'          => $request->identity_regency,
+                'identity_district'         => $request->identity_district,
+                'identity_village'          => $request->identity_village,
+                'identity_postal_code'      => $request->identity_postal_code,
+                'identity_address'          => $request->identity_address,
+                'current_province'          => $request->current_province,
+                'current_regency'           => $request->current_regency,
+                'current_district'          => $request->current_district,
+                'current_village'           => $request->current_village,
+                'current_postal_code'       => $request->current_postal_code,
+                'current_address'           => $request->current_address,
+                'residence_status'          => $request->residence_status,
+                'phone_number'              => $request->phone_number,
+                'emergency_phone_number'    => $request->emergency_phone_number,
+                'start_work'                => $request->start_work,
+                'gender'                    => $request->gender,
+                'birth_place'               => $request->birth_place,
+                'birth_date'                => $request->birth_date,
+                'religion'                  => $request->religion,
+                'blood_type'                => $request->blood_type,
+                'weight'                    => $request->weight,
+                'height'                    => $request->height,
+            ];
+
+            $biodata = EmployeeBiodata::create($data);
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 201,
+                'message'   => 'OK',
+                'data'      => $biodata
+            ], 201);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+
+    }
+
+    public function updateEmployeeBiodata($employeeId, Request $request)
+    {
+        try {
+            // Get Employee
+            $employee = Employee::with(['contract', 'biodata'])->where('id', $employeeId)->first();
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan'
+                ], 200);
+            }
+
+            // Validation Check
+            $rules = [
+                'fullname'                  => 'required',
+                'nickname'                  => 'required',
+                'nik'                       => 'required|digits:16',
+                'identity_province'         => 'required|numeric',
+                'identity_regency'          => 'required|numeric',
+                'identity_district'         => 'required|numeric',
+                'identity_village'          => 'required|numeric',
+                'identity_postal_code'      => 'required|numeric:digits:5',
+                'identity_address'          => 'required',
+                'current_province'          => 'required|numeric',
+                'current_regency'           => 'required|numeric',
+                'current_district'          => 'required|numeric',
+                'current_village'           => 'required|numeric',
+                'current_postal_code'       => 'required|numeric:digits:5',
+                'current_address'           => 'required',
+                'residence_status'          => 'required',
+                'phone_number'              => 'required|numeric',
+                'emergency_phone_number'    => 'required|numeric',
+                'start_work'                => 'required',
+                'gender'                    => 'required',
+                'birth_place'               => 'required',
+                'birth_date'                => 'required',
+                'religion'                  => 'required',
+                'blood_type'                => 'required',
+                'weight'                    => 'required|numeric',
+                'height'                    => 'required|numeric',
+            ];
+
+            if($employee->biodata->nik != $request->nik) $rules['nik'] = 'required|digits:16|unique:employee_biodatas,nik';
+            if($employee->biodata->phone_number != $request->phone_number) $rules['phone_number'] = 'required|unique:employee_biodatas,phone_number';
+
+            $validator = Validator::make($request->all(), $rules);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors()
+                ], 400);
+            }
+
+            if($request->phone_number == $request->emergency_phone_number) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'Nomor HP dan kontak darurat tidak boleh sama'
+                ], 400);
+            }
+
+            if($request->gender != 'L' && $request->gender != 'P') {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'Pilihan gender L atau P'
+                ], 400);
+            }
+
+            // store
+            $data = [
+                'fullname'                  => $request->fullname,
+                'nickname'                  => $request->nickname,
+                'nik'                       => $request->nik,
+                'identity_province'         => $request->identity_province,
+                'identity_regency'          => $request->identity_regency,
+                'identity_district'         => $request->identity_district,
+                'identity_village'          => $request->identity_village,
+                'identity_postal_code'      => $request->identity_postal_code,
+                'identity_address'          => $request->identity_address,
+                'current_province'          => $request->current_province,
+                'current_regency'           => $request->current_regency,
+                'current_district'          => $request->current_district,
+                'current_village'           => $request->current_village,
+                'current_postal_code'       => $request->current_postal_code,
+                'current_address'           => $request->current_address,
+                'residence_status'          => $request->residence_status,
+                'phone_number'              => $request->phone_number,
+                'emergency_phone_number'    => $request->emergency_phone_number,
+                'start_work'                => $request->start_work,
+                'gender'                    => $request->gender,
+                'birth_place'               => $request->birth_place,
+                'birth_date'                => $request->birth_date,
+                'religion'                  => $request->religion,
+                'blood_type'                => $request->blood_type,
+                'weight'                    => $request->weight,
+                'height'                    => $request->height,
+            ];
+
+            $biodata = EmployeeBiodata::where('employee_id', $employeeId)->update($data);
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $data
             ], 200);
 
         } catch (Exception $e) {

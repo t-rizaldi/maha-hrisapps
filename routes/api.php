@@ -81,4 +81,7 @@ Route::controller(EmployeeController::class)->group(function() {
     Route::post('/verify-register', 'verifyRegister')->name('verify-register');
     Route::get('/', 'index')->name('get-all-employees');
     Route::get('/{data}', 'getEmployeeById')->name('get-employee');
+
+    Route::post('/employee-biodata', 'storeEmployeeBiodata')->name('employee-biodata.store');
+    Route::put('/employee-biodata/{data}', 'updateEmployeeBiodata')->name('employee-biodata.update');
 });

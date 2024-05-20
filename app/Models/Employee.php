@@ -50,4 +50,8 @@ class Employee extends Model
     public function contract() {
         return $this->belongsTo(EmployeeContract::class, 'contract_id');
     }
+
+    public function biodata() {
+        return $this->hasOne(EmployeeBiodata::class, 'employee_id', 'id');
+    }
 }

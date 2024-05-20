@@ -297,6 +297,57 @@ class EmployeeController extends Controller
         }
     }
 
+    //==========================================
+    /*==========================
+            BIODATA
+    ==========================*/
+
+    public function storeEmployeeBiodata(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/employee-biodata", [
+                'json'  => $request->all()
+            ]);
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function updateEmployeeBiodata($employeeId, Request $request)
+    {
+        try {
+            $responseData = $this->client->put("$this->api/employee-biodata/$employeeId", [
+                'json'  => $request->all()
+            ]);
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
     /*================================
                 VERIFICATION
     ================================*/

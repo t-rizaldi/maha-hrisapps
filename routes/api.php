@@ -46,6 +46,9 @@ Route::prefix('employee')->group(function() {
 
                 Route::get('/', 'index');
                 Route::get('/{data}', 'getEmployeeById')->name('.detail');
+
+                Route::post('/employee-biodata', 'storeEmployeeBiodata')->name('.employee-biodata.store');
+                Route::put('/employee-biodata/{data}', 'updateEmployeeBiodata')->name('.employee-biodata.update');
             });
         });
 

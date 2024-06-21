@@ -5,20 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Branch extends Model
+class WorkHour extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'branch_code',
-        'branch_name',
-        'branch_location',
-        'branch_radius',
-        'is_project',
-        'is_sub',
-        'branch_parent_code',
-        'meal',
-        'is_active',
+        'work_hour_code',
+        'work_hour_name',
+        'start_entry_hour',
+        'entry_hour',
+        'end_entry_hour',
+        'home_hour',
     ];
 
     protected $hidden = [

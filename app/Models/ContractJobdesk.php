@@ -5,22 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class JobTitle extends Model
+class ContractJobdesk extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'name',
-        'department_id',
-        'sub_dept',
-        'role',
-        'gm_num',
-        'is_daily',
-        'daily_level',
+        'contract_id',
+        'jobdesk'
     ];
 
     protected $hidden = [
         'created_at',
-        'updated_at',
+        'updated_at'
     ];
 }

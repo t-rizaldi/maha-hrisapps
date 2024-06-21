@@ -19,7 +19,8 @@ class JobTitleController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Job titles not found'
+                    'message'   => 'Job titles not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -49,7 +50,8 @@ class JobTitleController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Job title not found'
+                    'message'   => 'Job title not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -79,7 +81,8 @@ class JobTitleController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Department not found'
+                    'message'   => 'Department not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -90,7 +93,8 @@ class JobTitleController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Job title not found'
+                    'message'   => 'Job title not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -117,7 +121,8 @@ class JobTitleController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => 'The input must be 0 or 1'
+                    'message'   => 'The input must be 0 or 1',
+                    'data'      => []
                 ], 400);
             }
 
@@ -127,7 +132,8 @@ class JobTitleController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Job titles not found'
+                    'message'   => 'Job titles not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -154,7 +160,8 @@ class JobTitleController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => 'The input must be 0 or 1'
+                    'message'   => 'The input must be 0 or 1',
+                    'data'      => []
                 ], 400);
             }
 
@@ -176,7 +183,8 @@ class JobTitleController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Job titles not found'
+                    'message'   => 'Job titles not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -231,6 +239,20 @@ class JobTitleController extends Controller
             if(!$request->is_daily) {
                 $data['department_id'] = $request->department_id;
                 $data['role'] = $request->role;
+
+                if($request->role == 3) {
+                    $validator = Validator::make($request->all(), [
+                        'gm_num'    => 'required'
+                    ]);
+
+                    if($validator->fails()) {
+                        return response()->json([
+                            'status'    => 'error',
+                            'code'      => 400,
+                            'message'   => $validator->errors()
+                        ], 400);
+                    }
+                }
 
                 // DEPARTMENT CHECK
                 $department = Department::find($request->department_id);

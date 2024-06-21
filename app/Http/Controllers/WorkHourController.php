@@ -2,24 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Department;
+use App\Models\WorkHour;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class DepartmentController extends Controller
+class WorkHourController extends Controller
 {
+
     public function index()
     {
         try {
-            // GET ALL DEPARTMENT
-            $departments = Department::all();
+            $workHours = WorkHour::all();
 
-            if(count($departments) < 1) {
+            if(count($workHours) < 1) {
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Department not found',
+                    'message'   => 'Jam kerja tidak ditemukan',
                     'data'      => []
                 ], 200);
             }
@@ -28,7 +28,7 @@ class DepartmentController extends Controller
                 'status'    => 'success',
                 'code'      => 200,
                 'message'   => 'OK',
-                'data'      => $departments
+                'data'      => $workHours
             ], 200);
 
         } catch (Exception $e) {
@@ -40,17 +40,16 @@ class DepartmentController extends Controller
         }
     }
 
-    public function detail($departmentCode = null)
+    public function detail($code)
     {
         try {
-            // GET DEPARTMENT
-            $department = Department::where('department_code', $departmentCode)->first();
+            $workHour = WorkHour::where('work_hour_code', $code)->first();
 
-            if(empty($department)) {
+            if(empty($workHour)) {
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Department not found',
+                    'message'   => 'Jam kerja tidak ditemukan',
                     'data'      => []
                 ], 200);
             }
@@ -59,7 +58,7 @@ class DepartmentController extends Controller
                 'status'    => 'success',
                 'code'      => 200,
                 'message'   => 'OK',
-                'data'      => $department
+                'data'      => $workHour
             ], 200);
 
         } catch (Exception $e) {
@@ -74,37 +73,41 @@ class DepartmentController extends Controller
     public function store(Request $request)
     {
         try {
-            // Validation Check
             $validator = Validator::make($request->all(), [
-                'department_code'   => 'required|unique:departments,department_code|max:3',
-                'department_name'   => 'required|unique:departments,department_name',
-                'is_sub'            => 'required',
-                'gm_num'            => 'numeric'
+                'work_hour_code'    => 'required|unique:work_hours,work_hour_code',
+                'work_hour_name'    => 'required',
+                'start_entry_hour'  => 'required|date_format:H:i:s',
+                'entry_hour'        => 'required|date_format:H:i:s',
+                'end_entry_hour'    => 'required|date_format:H:i:s',
+                'home_hour'         => 'required|date_format:H:i:s',
             ]);
 
             if($validator->fails()) {
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => $validator->errors()
+                    'message'   => $validator->errors(),
+                    'data'      => []
                 ], 400);
             }
 
-            // CREATE
+            // STORE
             $data = [
-                'department_code'   => strtoupper($request->department_code),
-                'department_name'   => $request->department_name,
-                'is_sub'            => $request->is_sub,
-                'gm_num'            => $request->gm_num,
+                'work_hour_code'    => $request->work_hour_code,
+                'work_hour_name'    => $request->work_hour_name,
+                'start_entry_hour'  => $request->start_entry_hour,
+                'entry_hour'        => $request->entry_hour,
+                'end_entry_hour'    => $request->end_entry_hour,
+                'home_hour'         => $request->home_hour,
             ];
 
-            $department = Department::create($data);
+            $workHour = WorkHour::create($data);
 
             return response()->json([
                 'status'    => 'success',
                 'code'      => 201,
                 'message'   => 'OK',
-                'data'      => $department
+                'data'      => $workHour
             ], 201);
 
         } catch (Exception $e) {
@@ -116,35 +119,30 @@ class DepartmentController extends Controller
         }
     }
 
-    public function update($departmentCode = null, Request $request)
+    public function update($code, Request $request)
     {
         try {
-            // GET DEPARTMENT
-            $department = Department::where('department_code', $departmentCode)->first();
+            $workHour = WorkHour::where('work_hour_code', $code)->first();
 
-            if(empty($department)) {
+            if(empty($workHour)) {
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Department not found'
+                    'message'   => 'Jam kerja tidak ditemukan',
+                    'data'      => []
                 ], 200);
             }
 
-            // VALIDATION CHECK
             $rules = [
-                'department_code'   => 'required|max:3',
-                'department_name'   => 'required',
-                'is_sub'            => 'required',
-                'gm_num'            => 'numeric'
+                'work_hour_code'    => 'required',
+                'work_hour_name'    => 'required',
+                'start_entry_hour'  => 'required|date_format:H:i:s',
+                'entry_hour'        => 'required|date_format:H:i:s',
+                'end_entry_hour'    => 'required|date_format:H:i:s',
+                'home_hour'         => 'required|date_format:H:i:s',
             ];
 
-            if($request->department_code != $department->department_code) {
-                $rules['department_code'] = 'required|unique:departments,department_code|max:3';
-            }
-
-            if($request->department_name != $department->department_name) {
-                $rules['department_name'] = 'required|unique:departments,department_name';
-            }
+            if($request->work_hour_code != $workHour->work_hour_code) $rules['work_hour_code'] = 'required|unique:work_hours,work_hour_code';
 
             $validator = Validator::make($request->all(), $rules);
 
@@ -152,25 +150,28 @@ class DepartmentController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => $validator->errors()
+                    'message'   => $validator->errors(),
+                    'data'      => []
                 ], 400);
             }
 
             // UPDATE
             $data = [
-                'department_code'   => strtoupper($request->department_code),
-                'department_name'   => $request->department_name,
-                'is_sub'            => $request->is_sub,
-                'gm_num'            => $request->gm_num,
+                'work_hour_code'    => $request->work_hour_code,
+                'work_hour_name'    => $request->work_hour_name,
+                'start_entry_hour'  => $request->start_entry_hour,
+                'entry_hour'        => $request->entry_hour,
+                'end_entry_hour'    => $request->end_entry_hour,
+                'home_hour'         => $request->home_hour,
             ];
 
-            Department::where('department_code', $departmentCode)->update($data);
+            WorkHour::where('work_hour_code', $code)->update($data);
 
             return response()->json([
                 'status'    => 'success',
                 'code'      => 200,
                 'message'   => 'OK',
-                'data'      => $data
+                'data'      => WorkHour::where('work_hour_code', $request->work_hour_code)->first()
             ], 200);
 
         } catch (Exception $e) {
@@ -182,29 +183,29 @@ class DepartmentController extends Controller
         }
     }
 
-    public function delete($departmentCode = null)
+    public function delete($code)
     {
         try {
-            // GET DEPARTMENT
-            $department = Department::where('department_code', $departmentCode)->first();
+            $workHour = WorkHour::where('work_hour_code', $code)->first();
 
-            if(empty($department)) {
+            if(empty($workHour)) {
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Department not found'
+                    'message'   => 'Jam kerja tidak ditemukan',
+                    'data'      => []
                 ], 200);
             }
 
-            // DELETE
-            Department::where('department_code', $departmentCode)->delete();
+            WorkHour::where('work_hour_code', $code)->delete();
 
             return response()->json([
                 'status'    => 'success',
                 'code'      => 200,
-                'message'   => 'OK'
+                'message'   => 'OK',
             ], 200);
-        } catch(Exception $e) {
+
+        } catch (Exception $e) {
             return response()->json([
                 'status'    => 'error',
                 'code'      => 400,

@@ -37,4 +37,11 @@ class EmployeeContract extends Model
         'created_at',
         'updated_at',
     ];
+
+    protected $appends = ['salary_text'];
+
+    public function getSalaryTextAttribute()
+    {
+        return numericText($this->attributes['salary']);
+    }
 }

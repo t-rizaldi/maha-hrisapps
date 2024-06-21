@@ -28,12 +28,13 @@ return new class extends Migration
             $table->date('end_contract')->nullable();
             $table->text('jobdesk_content')->nullable();
             $table->boolean('check_contract')->default(0);
-            $table->date('check_contract_date')->nullable();
+            $table->dateTime('check_contract_datetime')->nullable();
             $table->bigInteger('approver_id')->nullable()->index();
             $table->bigInteger('approver_job_title')->nullable()->index();
             $table->boolean('confirm_contract')->default(0);
             $table->date('confirm_contract_date')->nullable();
             $table->text('contract_file')->nullable();
+            $table->tinyInteger('status')->default(0);
             $table->timestamps();
         });
     }

@@ -43,9 +43,33 @@ class Employee extends Model
     ];
 
     protected $hidden = [
+        'signature',
         'created_at',
         'updated_at',
     ];
+
+    protected $appends = ['signature_url'];
+
+    public function getSignatureUrlAttribute()
+    {
+        if(!empty($this->attributes['signature'])) {
+            return url('public/storage/' . $this->attributes['signature']);
+        } else {
+            return null;
+        }
+    }
+
+    public function jobTitle() {
+        return $this->belongsTo(JobTitle::class, 'job_title_id');
+    }
+
+    public function department() {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
+
+    public function branch() {
+        return $this->belongsTo(Branch::class, 'branch_code', 'branch_code');
+    }
 
     public function contract() {
         return $this->belongsTo(EmployeeContract::class, 'contract_id');
@@ -53,5 +77,21 @@ class Employee extends Model
 
     public function biodata() {
         return $this->hasOne(EmployeeBiodata::class, 'employee_id', 'id');
+    }
+
+    public function education() {
+        return $this->hasOne(EmployeeEducation::class, 'employee_id', 'id');
+    }
+
+    public function family() {
+        return $this->hasOne(EmployeeFamily::class, 'employee_id', 'id');
+    }
+
+    public function document() {
+        return $this->hasOne(EmployeeDocument::class, 'employee_id', 'id');
+    }
+
+    public function workHour() {
+        return $this->hasOne(EmployeeWorkHour::class, 'employee_id', 'id');
     }
 }

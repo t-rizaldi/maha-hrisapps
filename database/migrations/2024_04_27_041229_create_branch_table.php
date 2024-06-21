@@ -20,6 +20,7 @@ return new class extends Migration
             $table->boolean('is_project')->default(false);
             $table->boolean('is_sub')->default(false);
             $table->string('branch_parent_code')->nullable();
+            $table->boolean('meal')->default(false);
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

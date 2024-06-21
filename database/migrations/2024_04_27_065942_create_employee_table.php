@@ -39,7 +39,7 @@ return new class extends Migration
             $table->text('current_address')->nullable();
             $table->string('bank_account_number')->nullable();
             $table->integer('role_id')->default(1);
-            $table->integer('status')->default(0);
+            $table->integer('status')->default(0)->comment("0 = verifikasi register, 1 = pengisian data, 2 = verifikasi data, 3 = aktif, 4 = nonaktif, 5 = daftar hitam, 6 = view contract register, 7 = verifikasi register ditolak, 8 = verifikasi data ditolak");
             $table->boolean('is_daily')->default(false);
             $table->boolean('is_flexible_absent')->default(false);
             $table->string('device_token')->nullable();

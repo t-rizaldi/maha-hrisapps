@@ -137,7 +137,7 @@ class AuthController extends Controller
             }
 
             // cek employee
-            $employee = Employee::with(['contract'])->where('email', $request->email)->first();
+            $employee = Employee::with(['jobTitle', 'department', 'branch', 'contract', 'biodata', 'education', 'family'])->where('email', $request->email)->first();
 
             if(empty($employee)) {
                 return response()->json([

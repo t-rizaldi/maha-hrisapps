@@ -5,20 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Branch extends Model
+class EmployeeSibling extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'branch_code',
-        'branch_name',
-        'branch_location',
-        'branch_radius',
-        'is_project',
-        'is_sub',
-        'branch_parent_code',
-        'meal',
-        'is_active',
+        'employee_id',
+        'sibling_name',
+        'sibling_gender',
+        'sibling_age',
+        'sibling_last_education',
+        'sibling_last_job_title',
+        'sibling_last_job_company',
     ];
 
     protected $hidden = [

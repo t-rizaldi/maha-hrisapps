@@ -17,6 +17,7 @@ return new class extends Migration
             $table->integer('department_id')->nullable()->index();
             $table->string('sub_dept')->nullable();
             $table->integer('role')->default(0)->comment('0: staff, 1: spv, 2: manager, 3: gm, 4: director, 5: commisioner');
+            $table->integer('gm_num')->nullable();
             $table->boolean('is_daily')->default(false);
             $table->tinyInteger('daily_level')->default(0);
             $table->timestamps();

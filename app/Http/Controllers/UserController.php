@@ -158,7 +158,8 @@ class UserController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'User not found'
+                    'message'   => 'User not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -187,7 +188,8 @@ class UserController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Invalid token'
+                    'message'   => 'Invalid token',
+                    'data'      => []
                 ], 200);
             }
 

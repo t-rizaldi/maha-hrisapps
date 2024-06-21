@@ -19,7 +19,8 @@ class LetterListController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Letters not found'
+                    'message'   => 'Letters not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -50,7 +51,8 @@ class LetterListController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Letter code invalid'
+                    'message'   => 'Letter code invalid',
+                    'data'      => []
                 ], 200);
             }
 

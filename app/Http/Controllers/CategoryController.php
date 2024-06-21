@@ -18,7 +18,8 @@ class CategoryController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Categories not found'
+                    'message'   => 'Categories not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -47,7 +48,8 @@ class CategoryController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Category not found'
+                    'message'   => 'Category not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -76,7 +78,8 @@ class CategoryController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Category not found'
+                    'message'   => 'Category not found',
+                    'data'      => []
                 ], 200);
             }
 

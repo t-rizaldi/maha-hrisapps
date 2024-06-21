@@ -39,8 +39,9 @@ class VerifyToken
             if ($expirationTimestamp !== null && $expirationTimestamp < $currentTimestamp) {
                 return response()->json([
                     'status'    => 'error',
+                    'code'      => 403,
                     'message'   => 'Token invalid'
-                ], 400);
+                ], 403);
             }
 
             $request->attributes->add(['token_payload' => $tokenParse->claims()->get('data')]);
@@ -50,6 +51,7 @@ class VerifyToken
         } else {
             return response()->json([
                 'status'    => 'error',
+                'code'      => 403,
                 'message'   => 'Unauthorized'
             ], 403);
         }

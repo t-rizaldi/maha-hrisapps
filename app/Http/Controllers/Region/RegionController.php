@@ -1,28 +1,31 @@
 <?php
 
-namespace App\Http\Controllers\Employee;
+namespace App\Http\Controllers\Region;
 
 use App\Http\Controllers\Controller;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Http\Request;
 
-class BranchController extends Controller
+class RegionController extends Controller
 {
     private $api;
     private $client;
 
     public function __construct()
     {
-        $this->api = env('URL_SERVICE_EMPLOYEE') . '/branch';
+        $this->api = env('URL_SERVICE_REGION');
         $this->client = new Client();
     }
 
-    public function detailBranch($branchCode = null)
+    /*===========================
+            INDONESIAN
+    ===========================*/
+
+    public function getAllProvince()
     {
         try {
-            $responseData = $this->client->get("$this->api/$branchCode/detail");
-
+            $responseData = $this->client->get("$this->api/all-province");
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 
@@ -39,14 +42,9 @@ class BranchController extends Controller
         }
     }
 
-    /*=============================
-            PARENT BRANCH
-    =============================*/
-
-    public function getAllParent()
-    {
+    public function getRegencyByProvinceId($provinceId) {
         try {
-            $responseData = $this->client->get("$this->api");
+            $responseData = $this->client->get("$this->api/all-regency/$provinceId");
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 
@@ -63,13 +61,9 @@ class BranchController extends Controller
         }
     }
 
-    public function createParent(Request $request)
-    {
+    public function getDistrictByRegencyId($regencyId) {
         try {
-            $responseData = $this->client->post("$this->api", [
-                'json' => $request->all()
-            ]);
-
+            $responseData = $this->client->get("$this->api/all-district/$regencyId");
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 
@@ -86,13 +80,9 @@ class BranchController extends Controller
         }
     }
 
-    public function updateParent($branchCode = null, Request $request)
-    {
+    public function getVillageByDistrictId($districtId) {
         try {
-            $responseData = $this->client->put("$this->api/$branchCode", [
-                'json' => $request->all()
-            ]);
-
+            $responseData = $this->client->get("$this->api/all-village/$districtId");
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 
@@ -109,11 +99,9 @@ class BranchController extends Controller
         }
     }
 
-    public function deleteParent($branchCode = null)
-    {
+    public function getProvinceById($provinceId) {
         try {
-            $responseData = $this->client->delete("$this->api/$branchCode");
-
+            $responseData = $this->client->get("$this->api/province/$provinceId");
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 
@@ -130,16 +118,9 @@ class BranchController extends Controller
         }
     }
 
-    //=================================================
-
-    /*=============================
-            CHILDREN BRANCH
-    =============================*/
-
-    public function getAllChildren()
-    {
+    public function getRegencyById($regencyId) {
         try {
-            $responseData = $this->client->get("$this->api/children");
+            $responseData = $this->client->get("$this->api/regency/$regencyId");
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 
@@ -156,10 +137,9 @@ class BranchController extends Controller
         }
     }
 
-    public function getAllChildrenByParentCode($parentCode = null)
-    {
+    public function getDistrictById($districtId) {
         try {
-            $responseData = $this->client->get("$this->api/children/parent/$parentCode");
+            $responseData = $this->client->get("$this->api/district/$districtId");
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 
@@ -176,57 +156,9 @@ class BranchController extends Controller
         }
     }
 
-    public function createChildren(Request $request)
-    {
+    public function getVillageById($villageId) {
         try {
-            $responseData = $this->client->post("$this->api/children", [
-                'json' => $request->all()
-            ]);
-
-            $statusCode = $responseData->getStatusCode();
-            $body = $responseData->getBody()->getContents();
-
-            $response = json_decode($body, true);
-            return response()->json($response, $statusCode);
-
-        } catch (ClientException $e) {
-            $responseData = $e->getResponse();
-            $statusCode = $responseData->getStatusCode();
-            $body = $responseData->getBody()->getContents();
-            $response = json_decode($body);
-
-            return response()->json([$response], $statusCode);
-        }
-    }
-
-    public function updateChildren($branchCode = null, Request $request)
-    {
-        try {
-            $responseData = $this->client->put("$this->api/children/$branchCode", [
-                'json' => $request->all()
-            ]);
-
-            $statusCode = $responseData->getStatusCode();
-            $body = $responseData->getBody()->getContents();
-
-            $response = json_decode($body, true);
-            return response()->json($response, $statusCode);
-
-        } catch (ClientException $e) {
-            $responseData = $e->getResponse();
-            $statusCode = $responseData->getStatusCode();
-            $body = $responseData->getBody()->getContents();
-            $response = json_decode($body);
-
-            return response()->json([$response], $statusCode);
-        }
-    }
-
-    public function deleteChildren($branchCode = null)
-    {
-        try {
-            $responseData = $this->client->delete("$this->api/children/$branchCode");
-
+            $responseData = $this->client->get("$this->api/village/$villageId");
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 

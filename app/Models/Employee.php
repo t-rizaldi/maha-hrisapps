@@ -37,8 +37,11 @@ class Employee extends Model
         'bank_account_number',
         'role_id',
         'status',
+        'statement_rejected',
         'is_daily',
         'is_flexible_absent',
+        'is_overtime',
+        'overtime_limit',
         'device_token',
     ];
 
@@ -48,7 +51,10 @@ class Employee extends Model
         'updated_at',
     ];
 
-    protected $appends = ['signature_url'];
+    protected $appends = [
+        'signature_url',
+        'status_label'
+    ];
 
     public function getSignatureUrlAttribute()
     {
@@ -57,6 +63,47 @@ class Employee extends Model
         } else {
             return null;
         }
+    }
+
+    public function getStatusLabelAttribute()
+    {
+        $status = $this->getAttribute('status');
+        $statusLabel = '';
+
+        switch ($status) {
+            case '0':
+                $statusLabel = 'Verifikasi Register';
+                break;
+            case '1':
+                $statusLabel = 'Pengisian Data';
+                break;
+            case '2':
+                $statusLabel = 'Verifikasi Data';
+                break;
+            case '3':
+                $statusLabel = 'Aktif';
+                break;
+            case '4':
+                $statusLabel = 'Nonaktif';
+                break;
+            case '5':
+                $statusLabel = 'Daftar Hitam';
+                break;
+            case '6':
+                $statusLabel = 'Meninjau Kontrak';
+                break;
+            case '7':
+                $statusLabel = 'Registrasi Ditolak';
+                break;
+            case '8':
+                $statusLabel = 'Data Ditolak';
+                break;
+            default:
+                $statusLabel = '-';
+                break;
+        }
+
+        return $statusLabel;
     }
 
     public function jobTitle() {

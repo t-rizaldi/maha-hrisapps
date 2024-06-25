@@ -40,8 +40,11 @@ return new class extends Migration
             $table->string('bank_account_number')->nullable();
             $table->integer('role_id')->default(1);
             $table->integer('status')->default(0)->comment("0 = verifikasi register, 1 = pengisian data, 2 = verifikasi data, 3 = aktif, 4 = nonaktif, 5 = daftar hitam, 6 = view contract register, 7 = verifikasi register ditolak, 8 = verifikasi data ditolak");
+            $table->text('statement_rejected')->nullable();
             $table->boolean('is_daily')->default(false);
             $table->boolean('is_flexible_absent')->default(false);
+            $table->boolean('is_overtime')->default(0)->comment('0 = lembur nonaktif, 1 = lembur aktif');
+            $table->integer('overtime_limit')->nullable();
             $table->string('device_token')->nullable();
             $table->timestamps();
         });

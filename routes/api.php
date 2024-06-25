@@ -108,7 +108,9 @@ Route::controller(WorkHourController::class)->group(function() {
 // EMPLOYEE
 Route::controller(EmployeeController::class)->group(function() {
     Route::post('/verify-register', 'verifyRegister')->name('verify-register');
+    Route::put('/reject-register', 'rejectRegister')->name('reject-register');
     Route::put('/verify-data/{data}', 'verifyData')->name('verify-data');
+    Route::put('/reject-data', 'rejectData')->name('reject-data')   ;
     Route::get('/', 'index')->name('get-all-employees');
     Route::get('/{data}', 'getEmployeeById')->name('get-employee');
 

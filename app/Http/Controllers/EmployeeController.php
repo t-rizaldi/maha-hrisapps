@@ -390,6 +390,76 @@ class EmployeeController extends Controller
         }
     }
 
+    public function rejectRegister(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'employee_id'           => 'required',
+                'statement_rejected'    => 'required'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get Employee
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            $employeeStatus = $employee->status;
+
+            if($employeeStatus == 7) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Registrasi karyawan telah ditolak sebelumnya!',
+                    'data'      => []
+                ], 200);
+            }
+
+            if($employeeStatus != 0) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak pada tahap verifikasi registrasi!',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Update
+            $employee->statement_rejected = $request->statement_rejected;
+            $employee->status = 7;
+            $employee->save();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employee
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
     // BIODATA
     public function verifyData($employeeId, Request $request)
     {
@@ -423,6 +493,76 @@ class EmployeeController extends Controller
             // Update
             $employee->employee_letter_code = $request->employee_letter_code;
             $employee->status = ($employee->show_contract == 1) ? 6 : 3;
+            $employee->save();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employee
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function rejectData(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'employee_id'           => 'required',
+                'statement_rejected'    => 'required'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get Employee
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            $employeeStatus = $employee->status;
+
+            if($employeeStatus == 8) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Data karyawan telah ditolak sebelumnya!',
+                    'data'      => []
+                ], 200);
+            }
+
+            if($employeeStatus != 2) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak pada tahap verifikasi data!',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Update
+            $employee->statement_rejected = $request->statement_rejected;
+            $employee->status = 8;
             $employee->save();
 
             return response()->json([

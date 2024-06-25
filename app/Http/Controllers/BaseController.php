@@ -40,6 +40,27 @@ class BaseController extends Controller
         }
     }
 
+    public function getEmployeeByParams($paramsArr = [])
+    {
+        try {
+            $responseData = $this->client->get("$this->apiEmployee", [
+                'query' => $paramsArr
+            ]);
+            
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return $response;
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+
+            return $response;
+        }
+    }
+
     public function getBranch($code)
     {
         try {

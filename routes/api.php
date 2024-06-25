@@ -21,6 +21,8 @@ Route::controller(AttendanceController::class)->group(function() {
             Route::post('/', 'storeOvertime')->name('.store');
             Route::put('/{data}/{data1}', 'updateOvertime')->name('.update');
             Route::delete('/{data}/{data1}', 'deleteOvertime')->name('.delete');
+            Route::post('/submit', 'submitOvertime')->name('.submit');
+            Route::post('/reject', 'rejectOvertime')->name('.reject');
             // Overtime Photo
             Route::prefix('photo')->group(function() {
                 Route::name('.photo')->group(function() {

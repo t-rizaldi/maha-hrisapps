@@ -37,51 +37,6 @@ class Overtime extends Model
 
     public function getApprovedStatusLabelAttribute()
     {
-        $status = $this->getAttribute('approved_status');
-        $statusLabel = 'Pending -';
-
-        switch ($status) {
-            case '0':
-                $statusLabel = 'Pending Manager';
-                break;
-            case '1':
-                $statusLabel = 'Pending GM';
-                break;
-            case '2':
-                $statusLabel = 'Pending HRD';
-                break;
-            case '3':
-                $statusLabel = 'Pending Direktur';
-                break;
-            case '4':
-                $statusLabel = 'Pending Komisaris';
-                break;
-            case '5':
-                $statusLabel = 'Approved';
-                break;
-            case '6':
-                $statusLabel = 'Ditolak Manager';
-                break;
-            case '7':
-                $statusLabel = 'Ditolak GM';
-                break;
-            case '8':
-                $statusLabel = 'Ditolak HRD';
-                break;
-            case '9':
-                $statusLabel = 'Ditolak Direktur';
-                break;
-            case '10':
-                $statusLabel = 'Ditolak Komisaris';
-                break;
-            case '11':
-                $statusLabel = 'Proses Input';
-                break;
-            default:
-                $statusLabel = 'Pending -';
-                break;
-        }
-
-        return $statusLabel;
+        return structureApprovalStatusLabel($this->getAttribute('approved_status'));
     }
 }

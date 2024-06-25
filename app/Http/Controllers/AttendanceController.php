@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Attendance;
 use App\Models\Overtime;
 use App\Models\OvertimePhoto;
+use App\Models\OvertimeTracking;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
@@ -166,7 +167,8 @@ class AttendanceController extends BaseController
                 'attendance_date'       => 'required|date',
                 'attendance_time'       => 'required|date_format:H:i:s',
                 'attendance_location'   => 'required',
-                'attendance_photo'      => 'required|image'
+                'attendance_photo'      => 'required|image',
+                'attendance_branch'     => 'required'
             ]);
 
             if($validator->fails()) {
@@ -207,13 +209,33 @@ class AttendanceController extends BaseController
                 ], 200);
             }
 
-            $branch = $this->getBranch($employee['branch_code']);
+            $branch = $this->getBranch($request->attendance_branch);
 
             if($branch['status'] == 'error') {
                 return response()->json($branch, 200);
             }
 
             $branch = $branch['data'];
+
+            // check sub or no
+            if($branch['is_sub'] == 1) {
+                if(strtoupper($branch['branch_parent_code']) != strtoupper($employee['branch_code'])) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 400,
+                        'message'   => 'Subcabang absen tidak sesuai dengan cabang karyawan'
+                    ], 400);
+                }
+            } else {
+                if(strtoupper($branch['branch_code']) != strtoupper($employee['branch_code'])) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 400,
+                        'message'   => 'Cabang absen tidak sesuai dengan cabang karyawan'
+                    ], 400);
+                }
+            }
+
             // Branch location
             [$branchLattitude, $branchLongitude] = explode(',', $branch['branch_location']);
 
@@ -531,6 +553,40 @@ class AttendanceController extends BaseController
 
             $employee = $employee['data'];
 
+            // overtime allowance check
+            $overtimePermit = $employee['is_overtime'];
+
+            if($overtimePermit != 1) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Lembur tidak di izinkan!',
+                    'data'      => []
+                ], 403);
+            }
+
+            $employeeJobTitle = $employee['job_title'];
+
+            if(empty($employeeJobTitle)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Jabatan karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            $jobTitleRole = $employeeJobTitle['role'];
+
+            if($jobTitleRole > 0) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Jabatan anda tidak diperkenankan untuk lembur!',
+                    'data'      => []
+                ], 403);
+            }
+
             // Get Branch
             if(empty($employee['branch_code'])) {
                 return response()->json([
@@ -745,6 +801,565 @@ class AttendanceController extends BaseController
                 'status'    => 'success',
                 'code'      => 200,
                 'message'   => 'OK'
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function submitOvertime(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'employee_id'   => 'required',
+                'overtime_id'   => 'required',
+                'submit_date'   => 'required|date_format:Y-m-d H:i:s'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors()
+                ], 400);
+            }
+
+            $employeeId = $request->employee_id;
+            $overtimeId = $request->overtime_id;
+
+            // Get Employee
+            $employee = $this->getEmployee($employeeId);
+
+            if($employee['status'] == 'error') {
+                return response()->json($employee, 200);
+            }
+
+            $employee = $employee['data'];
+
+            // Get Overtime
+            $overtime = Overtime::find($overtimeId);
+
+            if(empty($overtime)) {
+                return response()->json([
+                    'ststus'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Lembur tidak ditemukan'
+                ], 200);
+            }
+
+            // Cek kesesuaian
+            if($employee['id'] != $overtime->employee_id) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Lembur tidak sesuai dengan karyawan',
+                    'data'      => []
+                ], 403);
+            }
+
+            if($overtime->approved_status != 11) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Lembur sudah diajukan sebelumnya!',
+                    'data'      => []
+                ], 403);
+            }
+
+            $approvedStatus = 0;
+            $trackingDesc = 'Lembur diajukan';
+            $msgSuccess = 'Lembur berhasil diajukan';
+
+            $jobTitle = $employee['job_title'];
+            $dept = $employee['department'];
+            $deptId = $dept['id'];
+            $gmNum = $dept['gm_num'];
+
+            // Manager
+            $manager = $this->getEmployeeByParams([
+                            'department_code'   => $dept['department_code'],
+                            'role_id'           => 2,
+                            'status'            => 3
+                        ]);
+
+            if($manager['status'] == 'success') {
+                $manager = $manager['data'][0];
+            } else {
+                $manager = [];
+            }
+
+            // HRD Manager
+            $hrdManager = $this->getEmployeeByParams([
+                        'department_code'   => 'HR',
+                        'role_id'           => 2,
+                        'status'            => 3
+                    ]);
+
+            if($hrdManager['status'] == 'success') {
+                $hrdManager = $hrdManager['data'][0];
+            } else {
+                $hrdManager = [];
+            }
+
+            // HRD SPV
+            $hrdSpv = $this->getEmployeeByParams([
+                        'department_code'   => 'HR',
+                        'role_id'           => 1,
+                        'job_title'         => 34,
+                        'status'            => 3
+                    ]);
+
+            if($hrdSpv['status'] == 'success') {
+                $hrdSpv = $hrdSpv['data'][0];
+            } else {
+                $hrdSpv = [];
+            }
+
+            // GM
+            if(!empty($gmNum)) {
+                $gm = $this->getEmployeeByParams([
+                    'department_code'   => 'GM',
+                    'role_id'           => 3,
+                    'status'            => 3
+                ]);
+
+                if($gm['status'] == 'success') {
+                    $data = $gm['data'];
+
+                    $gm = [];
+
+                    foreach($data as $dt) {
+                        if($dt['job_title']['gm_num'] == $gmNum) $gm = $dt;
+                    }
+
+                } else {
+                    $gm = [];
+                }
+            } else {
+                $gm = [];
+            }
+
+            // Director
+            $director = $this->getEmployeeByParams([
+                'department_code'   => 'DU',
+                'role_id'           => 4,
+                'job_title'         => 2,
+                'status'            => 3
+            ]);
+
+            if($director['status'] == 'success') {
+                $director = $director['data'][0];
+            } else {
+                $director = [];
+            }
+
+            // Commisioner
+            $commisioner = $this->getEmployeeByParams([
+                'department_code'   => 'KM',
+                'role_id'           => 5,
+                'job_title'         => 1,
+                'status'            => 3
+            ]);
+
+            if($commisioner['status'] == 'success') {
+                $commisioner = $commisioner['data'][0];
+            } else {
+                $commisioner = [];
+            }
+
+            //staff direktur
+            if ($deptId == 2) {
+                $approvedStatus = 3;
+            }
+
+            if ($deptId == 9) {
+                $approvedStatus = 2;
+            } else {
+                // cek department under gm
+                if (!empty($gmNum)) {
+                    if (empty($manager)) $approvedStatus = 1;
+                } else {
+                    if (empty($manager)) $approvedStatus = 2;
+                }
+            }
+
+
+            //=============================
+            // cek data karyawan ada atau tidak dan send notifikasi
+            $employeeIdNotif = [];
+            if ($approvedStatus == 0) {
+                $employeeIdNotif[] = $manager['id'];
+            }
+
+            if ($approvedStatus == 1) {
+                if (empty($gm)) {
+                    $approvedStatus = 2;
+                } else {
+                    $employeeIdNotif[] = $gm['id'];
+                }
+            }
+
+            if ($approvedStatus == 2) {
+                if (empty($hrdManager)) {
+                    if (empty($hrdSpv)) {
+                        $approvedStatus = 3;
+                    } else {
+                        $employeeIdNotif[] = $hrdSpv['id'];
+                    }
+                } else {
+                    $employeeIdNotif[] = $hrdManager['id'];
+                }
+            }
+
+            if ($approvedStatus == 3) {
+                if (empty($director)) {
+                    $approvedStatus = 4;
+                } else {
+                    $employeeIdNotif[] = $director['id'];
+                }
+            }
+
+            if ($approvedStatus == 4) {
+                if (empty($commisioner)) {
+                    $approvedStatus = 5;
+                } else {
+                    $employeeIdNotif[] = $commisioner['id'];
+                }
+            }
+            //================================
+
+            // Update overtime
+            $overtime->approved_status = $approvedStatus;
+            $overtime->save();
+
+            // Create Tracking
+            $data = [
+                [
+                    'overtime_id'   => $overtimeId,
+                    'description'   => 'Lembur diajukan',
+                    'datetime'      => $request->submit_date
+                ],
+                [
+                    'overtime_id'   => $overtimeId,
+                    'description'   => structureApprovalStatusLabel($approvedStatus),
+                    'status'        => $approvedStatus,
+                ]
+            ];
+
+            $dataTracking = [];
+
+            foreach($data as $dat) {
+                $dataTracking[] = OvertimeTracking::create($dat);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => [
+                    'overtime'          => $overtime,
+                    'overtime_tracking' => $dataTracking
+                ]
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function rejectOvertime(Request $request)
+    {
+        try  {
+            $validator = Validator::make($request->all(), [
+                'overtime_id'       => 'required',
+                'rejector_id'       => 'required',
+                'reject_statement'  => 'required',
+                'reject_date'       => 'required|date_format:Y-m-d H:i:s'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get Rejector
+            $rejector = $this->getEmployee($request->rejector_id);
+
+            if($rejector['status'] == 'error') {
+                return response()->json($rejector, 200);
+            }
+
+            $rejector = $rejector['data'];
+
+            if($rejector['status'] != 3) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Akun tidak aktif!',
+                    'data'      => []
+                ], 403);
+            }
+
+            // Get Overtime
+            $overtime = Overtime::find($request->overtime_id);
+
+            if(empty($overtime)) {
+                return response()->json([
+                    'ststus'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Lembur tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Get Employee
+            $employee = $this->getEmployee($overtime->employee_id);
+
+            if($employee['status'] == 'error') {
+                return response()->json($employee, 200);
+            }
+
+            $employee = $employee['data'];
+            $employeeDept = $employee['department'];
+
+            $roleId = $rejector['role_id'];
+            $jobTitle = $rejector['job_title'];
+            $jobTitleId = $jobTitle['id'] ?? null;
+            $dept = $rejector['department'];
+            $deptId = $dept['id'] ?? null;
+
+            $approvedStatus = 0;
+            $newapprovedStatus = 6;
+
+            // Check Approved Status
+            if($roleId == 1 && $deptId == 9 && $jobTitleId == 34) {
+                $approvedStatus = 2;
+                $newapprovedStatus = 8;
+
+                if($overtime->approved_status != $approvedStatus) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 403,
+                        'message'   => 'Pengajuan lembur belum pada tahap HRD',
+                        'data'      => []
+                    ], 403);
+                }
+
+                // Get overtime tracking
+                $overtimeTracking = OvertimeTracking::where('overtime_id', $overtime->id)
+                                        ->where('status', $approvedStatus)
+                                        ->first();
+
+                if(!empty($overtimeTracking)) {
+                    $overtimeTracking->description = "Ditolak Spv HRD";
+                    $overtimeTracking->description_rejected = $request->reject_statement;
+                    $overtimeTracking->status = $newapprovedStatus;
+                    $overtimeTracking->datetime = $request->reject_date;
+                    $overtimeTracking->save();
+                }
+            } else if($roleId == 2 && $deptId == 9) {
+                $approvedStatus = 2;
+                $newapprovedStatus = 8;
+
+                if($overtime->approved_status != $approvedStatus) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 403,
+                        'message'   => 'Pengajuan lembur belum pada tahap HRD',
+                        'data'      => []
+                    ], 403);
+                }
+
+                // Get overtime tracking
+                $overtimeTracking = OvertimeTracking::where('overtime_id', $overtime->id)
+                                        ->where('status', $approvedStatus)
+                                        ->first();
+
+                if(!empty($overtimeTracking)) {
+                    $overtimeTracking->description = "Ditolak Manager HRD";
+                    $overtimeTracking->description_rejected = $request->reject_statement;
+                    $overtimeTracking->status = $newapprovedStatus;
+                    $overtimeTracking->datetime = $request->reject_date;
+                    $overtimeTracking->save();
+                }
+            } else if($roleId == 2 && $deptId != 9) {
+
+                if($employee['department_id'] != $deptId) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 403,
+                        'message'   => 'Pengajuan lembur bukan dari departemen yang sama!',
+                        'data'      => []
+                    ], 403);
+                }
+
+                if($overtime->approved_status != $approvedStatus) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 403,
+                        'message'   => 'Pengajuan lembur belum pada tahap manager',
+                        'data'      => []
+                    ], 403);
+                }
+
+                // Get overtime tracking
+                $overtimeTracking = OvertimeTracking::where('overtime_id', $overtime->id)
+                                        ->where('status', $approvedStatus)
+                                        ->first();
+
+                if(!empty($overtimeTracking)) {
+                    $overtimeTracking->description = "Ditolak Manager";
+                    $overtimeTracking->description_rejected = $request->reject_statement;
+                    $overtimeTracking->status = $newapprovedStatus;
+                    $overtimeTracking->datetime = $request->reject_date;
+                    $overtimeTracking->save();
+                }
+            } else if($roleId == 3) {
+                $approvedStatus = 1;
+                $newapprovedStatus = 7;
+
+                if(empty($dept)) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 204,
+                        'message'   => 'Departemen penolak tidak ditemukan',
+                        'data'      => []
+                    ], 200);
+                }
+
+                if(empty($jobTitle)) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 204,
+                        'message'   => 'Jabatan penolak tidak ditemukan',
+                        'data'      => []
+                    ], 200);
+                }
+
+                if(empty($employeeDept)) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 204,
+                        'message'   => 'Departemen karyawan tidak ditemukan',
+                        'data'      => []
+                    ], 200);
+                }
+
+                if($jobTitle['gm_num'] != $employeeDept['gm_num']) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 403,
+                        'message'   => 'Karyawan bukan bawahan anda!',
+                        'data'      => []
+                    ], 403);
+                }
+
+                if($overtime->approved_status != $approvedStatus) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 403,
+                        'message'   => 'Pengajuan lembur belum pada tahap GM',
+                        'data'      => []
+                    ], 403);
+                }
+
+                // Get overtime tracking
+                $overtimeTracking = OvertimeTracking::where('overtime_id', $overtime->id)
+                                        ->where('status', $approvedStatus)
+                                        ->first();
+
+                if(!empty($overtimeTracking)) {
+                    $overtimeTracking->description = "Ditolak GM";
+                    $overtimeTracking->description_rejected = $request->reject_statement;
+                    $overtimeTracking->status = $newapprovedStatus;
+                    $overtimeTracking->datetime = $request->reject_date;
+                    $overtimeTracking->save();
+                }
+            } else if($roleId == 4) {
+                $approvedStatus = 3;
+                $newapprovedStatus = 9;
+
+                if($overtime->approved_status != $approvedStatus) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 403,
+                        'message'   => 'Pengajuan lembur belum pada tahap Direktur',
+                        'data'      => []
+                    ], 403);
+                }
+
+                // Get overtime tracking
+                $overtimeTracking = OvertimeTracking::where('overtime_id', $overtime->id)
+                                        ->where('status', $approvedStatus)
+                                        ->first();
+
+                if(!empty($overtimeTracking)) {
+                    $overtimeTracking->description = "Ditolak Direktur";
+                    $overtimeTracking->description_rejected = $request->reject_statement;
+                    $overtimeTracking->status = $newapprovedStatus;
+                    $overtimeTracking->datetime = $request->reject_date;
+                    $overtimeTracking->save();
+                }
+            } else if($roleId == 5) {
+                $approvedStatus = 4;
+                $newapprovedStatus = 10;
+
+                if($overtime->approved_status != $approvedStatus) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 403,
+                        'message'   => 'Pengajuan lembur belum pada tahap komisaris',
+                        'data'      => []
+                    ], 403);
+                }
+
+                // Get overtime tracking
+                $overtimeTracking = OvertimeTracking::where('overtime_id', $overtime->id)
+                                        ->where('status', $approvedStatus)
+                                        ->first();
+
+                if(!empty($overtimeTracking)) {
+                    $overtimeTracking->description = "Ditolak Komisaris";
+                    $overtimeTracking->description_rejected = $request->reject_statement;
+                    $overtimeTracking->status = $newapprovedStatus;
+                    $overtimeTracking->datetime = $request->reject_date;
+                    $overtimeTracking->save();
+                }
+            } else {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Akun tidak bisa menolak lembur!',
+                    'data'      => []
+                ], 403);
+            }
+
+            // Update Overtime
+            $overtime->approved_status = $newapprovedStatus;
+            $overtime->is_read = 0;
+            $overtime->save();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => [
+                    'overtime'          => $overtime,
+                    'overtime_tracking' => OvertimeTracking::where('overtime_id', $overtime->id)->get()
+                ]
             ], 200);
 
         } catch (Exception $e) {

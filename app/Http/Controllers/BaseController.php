@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Http\Request;
@@ -46,7 +47,7 @@ class BaseController extends Controller
             $responseData = $this->client->get("$this->apiEmployee", [
                 'query' => $paramsArr
             ]);
-            
+
             $body = $responseData->getBody()->getContents();
 
             $response = json_decode($body, true);
@@ -61,6 +62,26 @@ class BaseController extends Controller
         }
     }
 
+    // Get Employee Work Hour
+    public function getEmployeeWorkHour($employeeId)
+    {
+        try {
+            $responseData = $this->client->get("$this->apiEmployee/employee-work-hour/$employeeId");
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return $response;
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+
+            return $response;
+        }
+    }
+
+    // Get branch
     public function getBranch($code)
     {
         try {
@@ -79,21 +100,128 @@ class BaseController extends Controller
         }
     }
 
-    public function getEmployeeWorkHour($employeeId)
+    // Get Approver by Structure
+    public function getApproverByStructure($employeeId)
     {
         try {
-            $responseData = $this->client->get("$this->apiEmployee/employee-work-hour/$employeeId");
-            $body = $responseData->getBody()->getContents();
+            // Get Employee
+            $employee = $this->getEmployee($employeeId);
 
-            $response = json_decode($body, true);
-            return $response;
+            if($employee['status'] == 'error') {
+                return response()->json($employee, 200);
+            }
 
-        } catch (ClientException $e) {
-            $responseData = $e->getResponse();
-            $body = $responseData->getBody()->getContents();
-            $response = json_decode($body, true);
+            $employee = $employee['data'];
+            $dept = $employee['department'];
+            $gmNum = $dept['gm_num'];
 
-            return $response;
+            // Manager
+            $manager = $this->getEmployeeByParams([
+                'department_code'   => $dept['department_code'],
+                'role_id'           => 2,
+                'status'            => 3
+            ]);
+
+            if($manager['status'] == 'success') {
+                $manager = $manager['data'][0];
+            } else {
+                $manager = [];
+            }
+
+            // HRD Manager
+            $hrdManager = $this->getEmployeeByParams([
+                        'department_code'   => 'HR',
+                        'role_id'           => 2,
+                        'status'            => 3
+                    ]);
+
+            if($hrdManager['status'] == 'success') {
+                $hrdManager = $hrdManager['data'][0];
+            } else {
+                $hrdManager = [];
+            }
+
+            // HRD SPV
+            $hrdSpv = $this->getEmployeeByParams([
+                        'department_code'   => 'HR',
+                        'role_id'           => 1,
+                        'job_title'         => 34,
+                        'status'            => 3
+                    ]);
+
+            if($hrdSpv['status'] == 'success') {
+                $hrdSpv = $hrdSpv['data'][0];
+            } else {
+                $hrdSpv = [];
+            }
+
+            // GM
+            if(!empty($gmNum)) {
+                $gm = $this->getEmployeeByParams([
+                    'department_code'   => 'GM',
+                    'role_id'           => 3,
+                    'status'            => 3
+                ]);
+
+                if($gm['status'] == 'success') {
+                    $data = $gm['data'];
+
+                    $gm = [];
+
+                    foreach($data as $dt) {
+                        if($dt['job_title']['gm_num'] == $gmNum) $gm = $dt;
+                    }
+
+                } else {
+                    $gm = [];
+                }
+            } else {
+                $gm = [];
+            }
+
+            // Director
+            $director = $this->getEmployeeByParams([
+                'department_code'   => 'DU',
+                'role_id'           => 4,
+                'job_title'         => 2,
+                'status'            => 3
+            ]);
+
+            if($director['status'] == 'success') {
+                $director = $director['data'][0];
+            } else {
+                $director = [];
+            }
+
+            // Commisioner
+            $commisioner = $this->getEmployeeByParams([
+                'department_code'   => 'KM',
+                'role_id'           => 5,
+                'job_title'         => 1,
+                'status'            => 3
+            ]);
+
+            if($commisioner['status'] == 'success') {
+                $commisioner = $commisioner['data'][0];
+            } else {
+                $commisioner = [];
+            }
+
+            return [
+                'manager'       => $manager,
+                'hrdManager'    => $hrdManager,
+                'hrdSpv'        => $hrdSpv,
+                'gm'            => $gm,
+                'director'      => $director,
+                'commisioner'   => $commisioner,
+            ];
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
         }
     }
 }

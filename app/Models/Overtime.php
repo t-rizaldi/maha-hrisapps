@@ -39,4 +39,9 @@ class Overtime extends Model
     {
         return structureApprovalStatusLabel($this->getAttribute('approved_status'));
     }
+
+    public function tracking()
+    {
+        return $this->hasMany(OvertimeTracking::class, 'overtime_id', 'id');
+    }
 }

@@ -9,11 +9,18 @@ use Illuminate\Support\Facades\Validator;
 
 class DepartmentController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         try {
             // GET ALL DEPARTMENT
-            $departments = Department::all();
+            $departments = Department::query();
+
+            if($request->has('gm_num')) {
+                $gmNum = $request->query('gm_num');
+                if(!empty($gmNum)) $departments->where('gm_num', $gmNum);
+            }
+
+            $departments = $departments->get();
 
             if(count($departments) < 1) {
                 return response()->json([

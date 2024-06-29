@@ -643,7 +643,7 @@ class AttendanceController extends BaseController
                 'status'    => 'success',
                 'code'      => 201,
                 'message'   => 'OK',
-                'data'      => Overtime::with(['tracking'])->where('id', $overtime->id)->first()
+                'data'      => Overtime::with(['tracking', 'photo'])->where('id', $overtime->id)->first()
             ], 201);
 
         } catch (Exception $e) {
@@ -665,7 +665,7 @@ class AttendanceController extends BaseController
                 return response()->json($employee, 200);
             }
 
-            $overtimes = Overtime::with(['tracking'])->where('employee_id', $employeeId);
+            $overtimes = Overtime::with(['tracking', 'photo'])->where('employee_id', $employeeId);
 
             $byApprovedDate = "false";
 
@@ -749,7 +749,7 @@ class AttendanceController extends BaseController
             $employee = $employee['data'];
 
             // Get Overtime
-            $overtime = Overtime::with(['tracking'])
+            $overtime = Overtime::with(['tracking', 'photo'])
                                 ->where('employee_id', $employeeId)
                                 ->where('overtime_date', $overtimeDate)
                                 ->first();
@@ -789,7 +789,7 @@ class AttendanceController extends BaseController
                         ->where('overtime_date', $overtimeDate)
                         ->update($data);
 
-                $overtimeUpdate = Overtime::with(['tracking'])
+                $overtimeUpdate = Overtime::with(['tracking', 'photo'])
                                             ->where('employee_id', $employeeId)
                                             ->where('overtime_date', $overtimeDate)
                                             ->first();
@@ -892,7 +892,7 @@ class AttendanceController extends BaseController
             $employee = $employee['data'];
 
             // Get Overtime
-            $overtime = Overtime::with(['tracking'])->where('id', $overtimeId)->first();
+            $overtime = Overtime::with(['tracking', 'photo'])->where('id', $overtimeId)->first();
 
             if(empty($overtime)) {
                 return response()->json([
@@ -921,7 +921,7 @@ class AttendanceController extends BaseController
                 ], 403);
             }
 
-            // Check Phoot
+            // Check Photo
             $startPhoto = OvertimePhoto::where('overtime_id', $overtime->id)
                                         ->where('status', 1)
                                         ->count();
@@ -1039,7 +1039,7 @@ class AttendanceController extends BaseController
                 'status'    => 'success',
                 'code'      => 200,
                 'message'   => 'OK',
-                'data'      => Overtime::with(['tracking'])->where('id', $overtimeId)->first()
+                'data'      => Overtime::with(['tracking', 'photo'])->where('id', $overtimeId)->first()
             ], 200);
 
         } catch (Exception $e) {
@@ -1331,7 +1331,7 @@ class AttendanceController extends BaseController
                 'status'    => 'success',
                 'code'      => 200,
                 'message'   => 'OK',
-                'data'      => Overtime::with(['tracking'])->where('id', $overtime->id)->first()
+                'data'      => Overtime::with(['tracking', 'photo'])->where('id', $overtime->id)->first()
             ], 200);
 
         } catch (Exception $e) {
@@ -1634,7 +1634,8 @@ class AttendanceController extends BaseController
                     $trackingData = [
                         'overtime_id'   => $overtime->id,
                         'description'   => 'Diperiksa GM',
-                        'status'        => $newApprovedStatus
+                        'status'        => $newApprovedStatus,
+                        'datetime'      => $request->approved_date
                     ];
                 }
             }
@@ -1647,14 +1648,16 @@ class AttendanceController extends BaseController
                         $trackingData = [
                             'overtime_id'   => $overtime->id,
                             'description'   => 'Diperiksa HRD',
-                            'status'        => $newApprovedStatus
+                            'status'        => $newApprovedStatus,
+                            'datetime'      => $request->approved_date
                         ];
                     }
                 } else {
                     $trackingData = [
                         'overtime_id'   => $overtime->id,
                         'description'   => 'Diperiksa HRD',
-                        'status'        => $newApprovedStatus
+                        'status'        => $newApprovedStatus,
+                        'datetime'      => $request->approved_date
                     ];
                 }
             }
@@ -1666,7 +1669,8 @@ class AttendanceController extends BaseController
                     $trackingData = [
                         'overtime_id'   => $overtime->id,
                         'description'   => 'Diperiksa Direktur',
-                        'status'        => $newApprovedStatus
+                        'status'        => $newApprovedStatus,
+                        'datetime'      => $request->approved_date
                     ];
                 }
             }
@@ -1678,7 +1682,8 @@ class AttendanceController extends BaseController
                     $trackingData = [
                         'overtime_id'   => $overtime->id,
                         'description'   => 'Diperiksa Komisaris',
-                        'status'        => $newApprovedStatus
+                        'status'        => $newApprovedStatus,
+                        'datetime'      => $request->approved_date
                     ];
                 }
             }
@@ -1687,7 +1692,8 @@ class AttendanceController extends BaseController
                 $trackingData = [
                     'overtime_id'   => $overtime->id,
                     'description'   => 'Disetujui',
-                    'status'        => $newApprovedStatus
+                    'status'        => $newApprovedStatus,
+                    'datetime'      => $request->approved_date
                 ];
             }
             //================================
@@ -1707,8 +1713,324 @@ class AttendanceController extends BaseController
                 'status'    => 'success',
                 'code'      => 200,
                 'message'   => 'OK',
-                'data'      => Overtime::with(['tracking'])->where('id', $overtime->id)->first()
+                'data'      => Overtime::with(['tracking', 'photo'])->where('id', $overtime->id)->first()
             ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function getOvertimeByApprover($approverId)
+    {
+        try {
+            // Get Approver
+            $approver = $this->getEmployee($approverId);
+
+            if($approver['status'] == 'error') {
+                return response()->json($approver, 200);
+            }
+
+            $approver = $approver['data'];
+
+            if($approver['status'] != 3) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Akun tidak aktif!',
+                    'data'      => []
+                ], 403);
+            }
+
+            $roleId = $approver['role_id'];
+            $jobTitle = $approver['job_title'];
+            $jobTitleId = $jobTitle['id'] ?? null;
+            $dept = $approver['department'];
+            $deptId = $dept['id'] ?? null;
+
+            // Check Approved Status
+            $overtimes = [];
+
+            if($roleId == 1 && $deptId == 9 && $jobTitleId == 34) {
+                $overtimes = Overtime::where('approved_status', 2)
+                                        ->orderBy('is_read')
+                                        ->get();
+
+                if(count($overtimes) < 1) $overtimes = [];
+
+            } else if($roleId == 2 && $deptId == 9) {
+                $overtimes = Overtime::where('approved_status', 2)
+                                        ->orderBy('is_read')
+                                        ->get();
+
+                if(count($overtimes) < 1) $overtimes = [];
+
+            } else if($roleId == 2 && $deptId != 9) {
+                $params = [
+                    'role_id'           => 1,
+                    'department_code'   => $dept['department_code'],
+                    'status'            => 3
+                ];
+
+                $employees = $this->getEmployeeByParams($params);
+
+                if($employees['status'] == 'error') {
+                    return response()->json($employees, 200);
+                }
+
+                $employees = $employees['data'];
+
+                // get overtime data
+                foreach($employees as $employee) {
+                    $overtime = Overtime::where('approved_status', 0)
+                                        ->where('employee_id', $employee['id'])
+                                        ->orderBy('is_read')
+                                        ->first();
+
+                    if(!empty($overtime)) $overtimes[] = $overtime;
+                }
+
+            } else if($roleId == 3) {
+                // get department under gm
+                $departments = $this->getAllDepartment(['gm_num' => $jobTitle['gm_num']]);
+
+                if($departments['status'] == 'error') {
+                    return response()->json($departments, 200);
+                }
+
+                $departments = $departments['data'];
+
+                $params = [];
+
+                foreach($departments as $department) {
+                    $params[] = [
+                        'role_id'           => 1,
+                        'department_code'   => $department['department_code'],
+                        'status'            => 3
+                    ];
+                }
+
+                $employeeData = [];
+
+                // Get Employee
+                foreach($params as $param) {
+                    $employees = $this->getEmployeeByParams($param);
+
+                    if($employees['status'] == 'success') {
+                        foreach($employees['data'] as $emp) {
+                            $employeeData[] = $emp;
+                        }
+                    }
+                }
+
+                // get overtime data
+                foreach($employeeData as $employee) {
+                    $overtime = Overtime::where('approved_status', 1)
+                                        ->where('employee_id', $employee['id'])
+                                        ->orderBy('is_read')
+                                        ->first();
+
+                    if(!empty($overtime)) $overtimes[] = $overtime;
+                }
+
+            } else if($roleId == 4) {
+                $overtimes = Overtime::where('approved_status', 3)
+                                        ->orderBy('is_read')
+                                        ->get();
+
+                if(count($overtimes) < 1) $overtimes = [];
+            } else if($roleId == 5) {
+                $overtimes = Overtime::where('approved_status', 4)
+                                        ->orderBy('is_read')
+                                        ->get();
+
+                if(count($overtimes) < 1) $overtimes = [];
+
+            } else {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Tidak bisa mengakses daftar lembur karyawan lain!',
+                    'data'      => []
+                ], 403);
+            }
+
+            if(empty($overtimes)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Data lembur tidak ditemukan!',
+                    'data'      => []
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $overtimes
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function overtimeOrderStore(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'boss_id'           => 'required',
+                'employee_id'       => 'required',
+                'overtime_date'     => 'required|date',
+                'subject'           => 'required',
+                'description'       => 'required'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // check date
+            $overtimeCheck = Overtime::where('employee_id', $request->employee_id)
+                                    ->where('overtime_date', $request->overtime_date)
+                                    ->count();
+
+            if($overtimeCheck > 0) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'Sudah ada lembur yang diinput pada tanggal yang sama',
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get Boss
+            $boss = $this->getEmployee($request->boss_id);
+
+            if($boss['status'] == 'error') {
+                return response()->json($boss, 200);
+            }
+
+            $boss = $boss['data'];
+            $bossDept = $boss['department'];
+            $bossJobTitle = $boss['job_title'];
+            $bossRoleId = $boss['role_id'];
+
+            if(empty($bossDept)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Departemen atasan tidak ditemukan!',
+                    'data'      => []
+                ], 200);
+            }
+
+            if(empty($bossJobTitle)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Jabatan atasan tidak ditemukan!',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Get Employee
+            $employee = $this->getEmployee($request->employee_id);
+
+            if($employee['status'] == 'error') {
+                return response()->json($employee, 200);
+            }
+
+            $employee = $employee['data'];
+            $employeeDept = $employee['department'];
+
+            if(empty($employeeDept)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Departemen karyawan tidak ditemukan!',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Get Branch
+            if(empty($employee['branch_code'])) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Kode cabang karyawan kosong',
+                    'data'      => []
+                ], 200);
+            }
+
+            $branch = $this->getBranch($employee['branch_code']);
+
+            if($branch['status'] == 'error') {
+                return response()->json($branch, 200);
+            }
+
+            $branch = $branch['data'];
+
+            // Boss role check
+            if($bossRoleId == 1) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Tidak memiliki akses perintah lembur!',
+                    'data'      => []
+                ], 403);
+            }
+
+            if($bossRoleId == 2 && $bossDept['id'] != $employeeDept['id']) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Karyawan bukan bawahan anda!',
+                    'data'      => []
+                ], 403);
+            }
+
+            if($bossRoleId == 3 && $bossJobTitle['gm_num'] != $employeeDept['gm_num']) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Karyawan bukan bawahan anda!',
+                    'data'      => []
+                ], 403);
+            }
+
+            $data = [
+                'employee_id'       => $request->employee_id,
+                'boss_id'           => $request->boss_id,
+                'overtime_date'     => $request->overtime_date,
+                'subject'           => $request->subject,
+                'description'       => $request->description,
+                'overtime_branch'   => $branch['branch_code'],
+                'approved_status'   => 11
+            ];
+
+            $overtime = Overtime::create($data);
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 201,
+                'message'   => 'OK',
+                'data'      => Overtime::with(['tracking', 'photo'])->where('id', $overtime->id)->first()
+            ], 201);
 
         } catch (Exception $e) {
             return response()->json([

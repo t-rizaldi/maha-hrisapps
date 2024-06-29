@@ -100,6 +100,27 @@ class BaseController extends Controller
         }
     }
 
+    // Get branch
+    public function getAllDepartment($paramsArr = [])
+    {
+        try {
+            $responseData = $this->client->get("$this->apiEmployee/department", [
+                'query' => $paramsArr
+            ]);
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return $response;
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+
+            return $response;
+        }
+    }
+
     // Get Approver by Structure
     public function getApproverByStructure($employeeId)
     {

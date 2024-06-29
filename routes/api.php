@@ -24,7 +24,9 @@ Route::controller(AttendanceController::class)->group(function() {
             Route::post('/submit', 'submitOvertime')->name('.submit');
             Route::post('/reject', 'rejectOvertime')->name('.reject');
             Route::post('/approve', 'approveOvertime')->name('.approve');
-            // Overtime Photo
+            Route::get('/list-by-approve/{data}', 'getOvertimeByApprover')->name('.list-by-approve');
+            Route::post('/order', 'overtimeOrderStore')->name('.order.store');
+            // Overtime Phot
             Route::prefix('photo')->group(function() {
                 Route::name('.photo')->group(function() {
                     Route::post('/{data}/{data1}', 'storeOvertimePhoto')->name('.store');

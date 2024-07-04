@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Attendance\AttendanceController;
+use App\Http\Controllers\Employee\BankController;
 use App\Http\Controllers\Employee\BranchController;
 use App\Http\Controllers\Employee\DepartmentController;
 use App\Http\Controllers\Employee\EmployeeController;
@@ -46,8 +47,13 @@ Route::prefix('employee')->group(function() {
 
             Route::middleware(VerifyToken::class)->group(function() {
                 Route::post('/verify-register', 'verifyRegister')->name('.verify-register');
+                Route::put('/reject-register', 'rejectRegister')->name('.reject-register');
                 Route::put('/verify-data/{data}', 'verifyData')->name('.verify-data');
+                Route::put('/verify-data-phase-two/{data}', 'verifyDataPhaseTwo')->name('.verify-data.two');
+                Route::put('/reject-data', 'rejectData')->name('.reject-data');
+                Route::put('/reject-data-phase-two', 'rejectDataPhaseTwo')->name('.reject-data-phase-two');
                 Route::post('/logout', 'logout')->name('.logout');
+                Route::post('/change-password', 'changePassword')->name('.change-password');
 
                 Route::get('/', 'index');
                 Route::get('/{data}', 'getEmployeeById')->name('.detail');
@@ -76,6 +82,9 @@ Route::prefix('employee')->group(function() {
                 Route::post('/employee-children', 'createEmployeeChildren')->name('.children.store');
                 Route::put('/employee-children/{data}/{data1}', 'updateEmployeeChildren')->name('.children.update');
                 Route::delete('/employee-children/{data}/{data1}', 'deleteEmployeeChildren')->name('.children.delete');
+                //BANK
+                Route::get('/employee-bank/{data}', 'getEmployeeBank')->name('.bank');
+                Route::post('/employee-bank', 'storeEmployeeBank')->name('.bank.store');
                 // DOCUMENT
                 Route::get('/employee-document/{data}', 'getEmployeeDocument')->name('.document');
                 Route::post('/employee-document', 'storeEmployeeDocument')->name('.document.store');
@@ -191,6 +200,18 @@ Route::controller(WorkHourController::class)->group(function() {
     });
 });
 
+// BANK
+Route::controller(BankController::class)->group(function() {
+    Route::prefix('bank')->group(function() {
+        Route::name('bank')->group(function() {
+            Route::middleware(VerifyToken::class)->group(function() {
+                Route::get('/', 'index');
+                Route::get('/{data}', 'detail')->name('.detail');
+            });
+        });
+    });
+});
+
 // LETTER
 Route::prefix('letter')->group(function() {
     Route::name('letter')->group(function() {
@@ -260,14 +281,21 @@ Route::prefix('attendance')->group(function() {
             Route::middleware(VerifyToken::class)->group(function() {
                 // Attendance
                 Route::get('/employee-history/{data}/{data1}/{data2}', 'employeeAttendanceHistory')->name('.employee-history');
+                Route::get('/history/{data}/{data1}', 'attendanceHistory')->name('.history');
                 Route::post('/', 'storeAttendance')->name('.store');
                 // Overtime
                 Route::prefix('overtime')->group(function() {
                     Route::name('.overtime')->group(function() {
-                        Route::post('/', 'storeOvertime')->name('.store');
                         Route::get('/{data}', 'getOvertimeByEmployeeId');
+                        Route::get('/{data}/{data1}', 'getAllEmployeeOvertimeBydate')->name('.all-employee-by-date');
+                        Route::post('/', 'storeOvertime')->name('.store');
                         Route::put('/{data}/{data1}', 'updateOvertime')->name('.update');
                         Route::delete('/{data}/{data1}', 'deleteOvertime')->name('.delete');
+                        Route::post('/submit', 'submitOvertime')->name('.submit');
+                        Route::post('/reject', 'rejectOvertime')->name('.reject');
+                        Route::get('/list-by-approve/{data}', 'getOvertimeByApprover');
+                        //Order
+                        Route::post('/order', 'overtimeOrderStore')->name('.order.store');
                         // Overtime Photo
                         Route::prefix('photo')->group(function() {
                             Route::name('.photo')->group(function() {

@@ -18,10 +18,17 @@ class DepartmentController extends Controller
         $this->client = new Client();
     }
 
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $responseData = $this->client->get("$this->api");
+            $params = [];
+
+            if($request->has('gm_num')) {
+                $gmNum = $request->query('gm_num');
+                if(!empty($gmNum)) $params['query']['gm_num'] = $gmNum;
+            }
+
+            $responseData = $this->client->get("$this->api", $params);
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 

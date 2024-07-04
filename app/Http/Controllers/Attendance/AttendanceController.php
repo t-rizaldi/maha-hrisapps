@@ -43,6 +43,40 @@ class AttendanceController extends Controller
         }
     }
 
+    public function attendanceHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $params = [];
+
+            if($request->has('status')) {
+                $params['query']['status'] = $request->query('status');
+            }
+
+            if($request->has('branch_code')) {
+                $params['query']['branch_code'] = $request->query('branch_code');
+            }
+
+            if($request->has('employee_id')) {
+                $params['query']['employee_id'] = $request->query('employee_id');
+            }
+
+            $responseData = $this->client->get("$this->api/history/$startDate/$endDate", $params);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
     /*========Photo Attendance==========*/
     // Store
     public function storeAttendance(Request $request)
@@ -81,13 +115,28 @@ class AttendanceController extends Controller
                 OVERTIME
     =================================*/
 
-    public function storeOvertime(Request $request)
+    public function getAllEmployeeOvertimeBydate($startDate, $endDate, Request $request)
     {
         try {
-            $responseData = $this->client->post("$this->api/overtime", [
-                'json'  => $request->all()
-            ]);
+            $params = [];
 
+            if($request->has('by_approved_date')) {
+                $params['query']['by_approved_date'] = $request->query('by_approved_date');
+            }
+
+            if($request->has('branch_code')) {
+                $params['query']['branch_code'] = $request->query('branch_code');
+            }
+
+            if($request->has('approved_status')) {
+                $params['query']['approved_status'] = $request->query('approved_status');
+            }
+
+            if($request->has('employee_id')) {
+                $params['query']['employee_id'] = $request->query('employee_id');
+            }
+
+            $responseData = $this->client->get("$this->api/overtime/$startDate/$endDate", $params);
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 
@@ -108,6 +157,29 @@ class AttendanceController extends Controller
     {
         try {
             $responseData = $this->client->get("$this->api/overtime/$employeeId");
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function storeOvertime(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/overtime", [
+                'json'  => $request->all()
+            ]);
 
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
@@ -152,6 +224,119 @@ class AttendanceController extends Controller
     {
         try {
             $responseData = $this->client->delete("$this->api/overtime/$employeeId/$overtimeDate");
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function submitOvertime(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/overtime/submit", [
+                'json'  => $request->all()
+            ]);
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function rejectOvertime(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/overtime/reject", [
+                'json'  => $request->all()
+            ]);
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function approveOvertime(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/overtime/approve", [
+                'json'  => $request->all()
+            ]);
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function getOvertimeByApprover($approverId)
+    {
+        try {
+            $responseData = $this->client->get("$this->api/overtime/list-by-approve/$approverId");
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function overtimeOrderStore(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/overtime/order", [
+                'json'  => $request->all()
+            ]);
 
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();

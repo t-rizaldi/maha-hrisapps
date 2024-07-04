@@ -251,6 +251,28 @@ class EmployeeController extends Controller
         }
     }
 
+    public function changePassword(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/change-password", [
+                'json'  => $request->all()
+            ]);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
     // ====================================================
 
     /*================================
@@ -744,6 +766,51 @@ class EmployeeController extends Controller
         }
     }
 
+    // BANK
+    public function getEmployeeBank($employeeId)
+    {
+        try {
+            $responseData = $this->client->get("$this->api/employee-bank/$employeeId");
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function storeEmployeeBank(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/employee-bank", [
+                'json'  => $request->all()
+            ]);
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
     // DOCUMENT
     public function getEmployeeDocument($employeeId)
     {
@@ -1198,6 +1265,28 @@ class EmployeeController extends Controller
         }
     }
 
+    public function rejectRegister(Request $request)
+    {
+        try {
+            $responseData = $this->client->put("$this->api/reject-register", [
+                'json'  => $request->all()
+            ]);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
     // BIODATA
     public function verifyData($employeeId, Request $request)
     {
@@ -1206,6 +1295,71 @@ class EmployeeController extends Controller
                 'json'  => $request->all()
             ]);
 
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function verifyDataPhaseTwo($employeeId)
+    {
+        try {
+            $responseData = $this->client->put("$this->api/verify-data-phase-two/$employeeId");
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function rejectData(Request $request)
+    {
+        try {
+            $responseData = $this->client->put("$this->api/reject-data", [
+                'json'  => $request->all()
+            ]);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function rejectDataPhaseTwo(Request $request)
+    {
+        try {
+            $responseData = $this->client->put("$this->api/reject-data-phase-two", [
+                'json'  => $request->all()
+            ]);
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
 

@@ -2,11 +2,19 @@
 
 namespace App\Models;
 
+use App\Http\Controllers\BaseController;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Attendance extends Model
 {
+    private $baseController;
+
+    public function __construct()
+    {
+        $this->baseController = new BaseController();
+    }
+
     use HasFactory;
 
     protected $fillable = [
@@ -54,11 +62,24 @@ class Attendance extends Model
     ];
 
     protected $appends = [
+        'employee',
         'photo_in_url',
         'photo_out_url',
         'overtime_start_photo_url',
         'overtime_finish_photo_url',
     ];
+
+    public function getEmployeeAttribute()
+    {
+        $employeeId = $this->getAttribute('employee_id');
+        $employee = $this->baseController->getEmployee($employeeId);
+
+        if($employee['status'] == 'success'){
+            return $employee['data'];
+        } else {
+            return null;
+        }
+    }
 
     public function getPhotoInUrlAttribute()
     {

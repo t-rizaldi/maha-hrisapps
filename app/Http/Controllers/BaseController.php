@@ -13,6 +13,12 @@ class BaseController extends Controller
     protected $apiGeocodingMaps;
     protected $mapsApiKey;
     protected $client;
+    protected $messageSuccess;
+    protected $messageError;
+    protected $messageNotFound;
+    protected $messageCreated;
+    protected $messageUpdated;
+    protected $messageDeleted;
 
     public function __construct()
     {
@@ -20,6 +26,13 @@ class BaseController extends Controller
         $this->apiGeocodingMaps = env('URL_GEOCODING_API_MAPS');
         $this->mapsApiKey = env('MAPBOX_API_KEY');
         $this->client = new Client();
+
+        $this->messageSuccess = 'success';
+        $this->messageError = 'error';
+        $this->messageNotFound = ' tidak ditemukan !';
+        $this->messageCreated = ' berhasil ditambah !';
+        $this->messageUpdated = ' berhasil diubah !';
+        $this->messageDeleted = ' berhasil dihapus !';
     }
 
     // Get Employee

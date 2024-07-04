@@ -157,6 +157,62 @@ class AttendanceController extends BaseController
         }
     }
 
+    public function attendanceHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $attendances = Attendance::whereBetween('attendance_date', [$startDate, $endDate]);
+
+            $status = 0;
+
+            if($request->has('status')) {
+                $statusReq = $request->query('status');
+                if($statusReq == 1) $status = $statusReq;
+            }
+
+            if($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                if(!empty($branchCode)) $attendances->where('branch_attendance', $branchCode);
+            }
+
+            if($request->has('employee_id')) {
+                $employeeId = $request->query('employee_id');
+                if(!empty($employeeId)) $attendances->where('employee_id', $employeeId);
+            }
+
+            $attendances = $attendances->get();
+
+            $filteredData = $attendances->filter(function($item) use ($status) {
+                return $item['employee']['is_daily'] == $status;
+            });
+
+            if(count($filteredData) < 1) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Data absensi tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => [
+                    'count'         => count($filteredData->values()),
+                    'attendance'    => $filteredData->values()
+                ]
+            ], 200);
+
+        }  catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
     /*========Photo Attendance==========*/
     // Store
     public function storeAttendance(Request $request)
@@ -384,9 +440,10 @@ class AttendanceController extends BaseController
                 } else {
                     return response()->json([
                         'status'    => 'error',
-                        'code'      => 400,
-                        'message'   => "Maaf Anda Berada Diluar Radius, Jarak Anda " . number_format($distance, 0, ',', '.') . " meter dari lokasi yang ditentukan"
-                    ], 200);
+                        'code'      => 403,
+                        'message'   => "Maaf Anda Berada Diluar Radius, Jarak Anda " . number_format($distance, 0, ',', '.') . " meter dari lokasi yang ditentukan",
+                        'data'      => []
+                    ], 403);
                 }
 
             } else {
@@ -510,6 +567,136 @@ class AttendanceController extends BaseController
                 OVERTIME
     =================================*/
 
+    public function getAllEmployeeOvertimeBydate($startDate, $endDate, Request $request)
+    {
+        try {
+            $byApprovedDate = "false";
+
+            if($request->has('by_approved_date')) {
+                $byApprovedDate = $request->query('by_approved_date');
+
+                if(empty($byApprovedDate))$byApprovedDate = "false";
+            }
+
+            $whereBy = 'overtime_date';
+            if($byApprovedDate == "true") $whereBy = 'approved_date';
+
+            $overtimes = Overtime::with(['tracking', 'photo'])
+                        ->whereBetween($whereBy, [$startDate, $endDate])
+                        ->where('start_time', '!=', null);
+
+            if($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                if(!empty($branchCode)) $overtimes->where('overtime_branch', $branchCode);
+            }
+
+            if($request->has('approved_status')) {
+                $approvedStatus = $request->query('approved_status');
+                if(!empty($approvedStatus)) $overtimes->where('approved_status', $approvedStatus);
+            }
+
+            if($request->has('employee_id')) {
+                $employeeId = $request->query('employee_id');
+                if(!empty($employeeId)) $overtimes->where('employee_id', $employeeId);
+            }
+
+            $overtimes = $overtimes->get();
+
+            if(count($overtimes) < 1) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Data lembur tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => [
+                    'count'     => count($overtimes),
+                    'overtimes' => $overtimes
+                ]
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function getOvertimeByEmployeeId($employeeId, Request $request)
+    {
+        try {
+            // Get Employee
+            $employee = $this->getEmployee($employeeId);
+
+            if($employee['status'] == 'error') {
+                return response()->json($employee, 200);
+            }
+
+            $overtimes = Overtime::with(['tracking', 'photo'])->where('employee_id', $employeeId);
+
+            $byApprovedDate = "false";
+
+            if($request->has('by_approved_date')) {
+                $byApprovedDate = $request->query('by_approved_date');
+
+                if(empty($byApprovedDate))$byApprovedDate = "false";
+            }
+
+            $whereBy = 'overtime_date';
+            if($byApprovedDate == "true") $whereBy = 'approved_date';
+
+            if($request->has('start_date')) {
+                $startDate = $request->query('start_date');
+                if(!empty($startDate)) {
+                    $overtimes->where($whereBy, '>=', $startDate);
+                }
+            }
+
+            if($request->has('end_date')) {
+                $endDate = $request->query('end_date');
+                if(!empty($endDate)) $overtimes->where($whereBy, '<=', $endDate);
+            }
+
+            if($request->has('approved_status')) {
+                $approvedStatus = $request->query('approved_status');
+                if(!empty($approvedStatus)) $overtimes->where('approved_status', $approvedStatus);
+            }
+
+            $overtimes = $overtimes->get();
+
+            if(count($overtimes) < 1) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Lembur tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $overtimes
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
     public function storeOvertime(Request $request)
     {
         try {
@@ -587,24 +774,6 @@ class AttendanceController extends BaseController
                 ], 403);
             }
 
-            // Get Branch
-            if(empty($employee['branch_code'])) {
-                return response()->json([
-                    'status'    => 'error',
-                    'code'      => 204,
-                    'message'   => 'Kode cabang karyawan kosong',
-                    'data'      => []
-                ], 200);
-            }
-
-            $branch = $this->getBranch($employee['branch_code']);
-
-            if($branch['status'] == 'error') {
-                return response()->json($branch, 200);
-            }
-
-            $branch = $branch['data'];
-
             // Attendance Check
             $attendance = Attendance::where('employee_id', $request->employee_id)
                                     ->where('attendance_date', $request->overtime_date)
@@ -618,6 +787,24 @@ class AttendanceController extends BaseController
                     'data'      => []
                 ], 403);
             }
+
+            // Get Branch
+            if(empty($attendance->branch_attendance)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Kode cabang karyawan kosong',
+                    'data'      => []
+                ], 200);
+            }
+
+            $branch = $this->getBranch($attendance->branch_attendance);
+
+            if($branch['status'] == 'error') {
+                return response()->json($branch, 200);
+            }
+
+            $branch = $branch['data'];
 
             if(empty($attendance->clock_out)) {
                 return response()->json([
@@ -645,73 +832,6 @@ class AttendanceController extends BaseController
                 'message'   => 'OK',
                 'data'      => Overtime::with(['tracking', 'photo'])->where('id', $overtime->id)->first()
             ], 201);
-
-        } catch (Exception $e) {
-            return response()->json([
-                'status'    => 'error',
-                'code'      => 400,
-                'message'   => $e->getMessage()
-            ], 400);
-        }
-    }
-
-    public function getOvertimeByEmployeeId($employeeId, Request $request)
-    {
-        try {
-            // Get Employee
-            $employee = $this->getEmployee($employeeId);
-
-            if($employee['status'] == 'error') {
-                return response()->json($employee, 200);
-            }
-
-            $overtimes = Overtime::with(['tracking', 'photo'])->where('employee_id', $employeeId);
-
-            $byApprovedDate = "false";
-
-            if($request->has('by_approved_date')) {
-                $byApprovedDate = $request->query('by_approved_date');
-
-                if(empty($byApprovedDate))$byApprovedDate = "false";
-            }
-
-            $whereBy = 'overtime_date';
-            if($byApprovedDate == "true") $whereBy = 'approved_date';
-
-            if($request->has('start_date')) {
-                $startDate = $request->query('start_date');
-                if(!empty($startDate)) {
-                    $overtimes->where($whereBy, '>=', $startDate);
-                }
-            }
-
-            if($request->has('end_date')) {
-                $endDate = $request->query('end_date');
-                if(!empty($endDate)) $overtimes->where($whereBy, '<=', $endDate);
-            }
-
-            if($request->has('approved_status')) {
-                $approvedStatus = $request->query('approved_status');
-                if(!empty($approvedStatus)) $overtimes->where('approved_status', $approvedStatus);
-            }
-
-            $overtimes = $overtimes->get();
-
-            if(count($overtimes) < 1) {
-                return response()->json([
-                    'status'    => 'error',
-                    'code'      => 204,
-                    'message'   => 'Lembur tidak ditemukan',
-                    'data'      => []
-                ], 200);
-            }
-
-            return response()->json([
-                'status'    => 'success',
-                'code'      => 200,
-                'message'   => 'OK',
-                'data'      => $overtimes
-            ], 200);
 
         } catch (Exception $e) {
             return response()->json([
@@ -1789,9 +1909,13 @@ class AttendanceController extends BaseController
                     $overtime = Overtime::where('approved_status', 0)
                                         ->where('employee_id', $employee['id'])
                                         ->orderBy('is_read')
-                                        ->first();
+                                        ->get();
 
-                    if(!empty($overtime)) $overtimes[] = $overtime;
+                    if(!empty($overtime)) {
+                        foreach($overtime as $ovt) {
+                            $overtimes[] = $ovt;
+                        }
+                    }
                 }
 
             } else if($roleId == 3) {
@@ -1832,9 +1956,13 @@ class AttendanceController extends BaseController
                     $overtime = Overtime::where('approved_status', 1)
                                         ->where('employee_id', $employee['id'])
                                         ->orderBy('is_read')
-                                        ->first();
+                                        ->get();
 
-                    if(!empty($overtime)) $overtimes[] = $overtime;
+                    if(!empty($overtime)) {
+                        foreach($overtime as $ovt) {
+                            $overtimes[] = $ovt;
+                        }
+                    }
                 }
 
             } else if($roleId == 4) {
@@ -1904,7 +2032,21 @@ class AttendanceController extends BaseController
                 ], 400);
             }
 
-            // check date
+            // check attendance
+            $attendance = Attendance::where('employee_id', $request->employee_id)
+                                    ->where('attendance_date', $request->overtime_date)
+                                    ->first();
+
+            if(empty($attendance)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Karyawan tidak ada melakukan absensi pada tanggal yang di input!',
+                    'data'      => []
+                ], 403);
+            }
+
+            // check date overtime
             $overtimeCheck = Overtime::where('employee_id', $request->employee_id)
                                     ->where('overtime_date', $request->overtime_date)
                                     ->count();
@@ -1912,10 +2054,10 @@ class AttendanceController extends BaseController
             if($overtimeCheck > 0) {
                 return response()->json([
                     'status'    => 'error',
-                    'code'      => 400,
+                    'code'      => 403,
                     'message'   => 'Sudah ada lembur yang diinput pada tanggal yang sama',
                     'data'      => []
-                ], 400);
+                ], 403);
             }
 
             // Get Boss
@@ -1968,16 +2110,16 @@ class AttendanceController extends BaseController
             }
 
             // Get Branch
-            if(empty($employee['branch_code'])) {
+            if(empty($attendance->branch_attendance)) {
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Kode cabang karyawan kosong',
+                    'message'   => 'Kode cabang absensi kosong',
                     'data'      => []
                 ], 200);
             }
 
-            $branch = $this->getBranch($employee['branch_code']);
+            $branch = $this->getBranch($attendance->branch_attendance);
 
             if($branch['status'] == 'error') {
                 return response()->json($branch, 200);
@@ -2077,7 +2219,8 @@ class AttendanceController extends BaseController
                 return response()->json([
                     'ststus'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Lembur tidak ditemukan'
+                    'message'   => 'Lembur tidak ditemukan',
+                    'data'      => []
                 ], 200);
             }
 
@@ -2089,6 +2232,40 @@ class AttendanceController extends BaseController
                     'message'   => 'Lembur tidak sesuai dengan karyawan',
                     'data'      => []
                 ], 200);
+            }
+
+            // Get Branch
+            if(empty($overtime->overtime_branch)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Kode cabang lembur kosong',
+                    'data'      => []
+                ], 200);
+            }
+
+            $branch = $this->getBranch($overtime->overtime_branch);
+
+            if($branch['status'] == 'error') {
+                return response()->json($branch, 200);
+            }
+
+            $branch = $branch['data'];
+
+            // Distance Check
+            [$branchLattitude, $branchLongitude] = explode(',', $branch['branch_location']);
+            [$photoLattitude, $photoLongitude] = explode(',', $request->location);
+
+            // calculate distance
+            $distance = round($this->calculateDistance($branchLattitude, $branchLongitude, $photoLattitude, $photoLongitude));
+
+            if($distance > $branch['branch_radius']) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => "Maaf Anda Berada Diluar Radius, Jarak Anda " . number_format($distance, 0, ',', '.') . " meter dari lokasi yang ditentukan",
+                    'data'      => []
+                ], 403);
             }
 
             // store
@@ -2130,6 +2307,10 @@ class AttendanceController extends BaseController
                     ], 400);
 
                 } else {
+                    // Get Attendance
+                    $attendance = Attendance::where('employee_id', $employeeId)
+                                            ->where('attendance_date', $overtime->overtime_date)
+                                            ->first();
 
                     $photoName = $overtime->overtime_date . "_$overtimeStatusLabel" . "_" . (count($photoCheck) + 1) . '.' . $overtimePhoto->getClientOriginalExtension();
                     $path = "overtime/employee/$employeeId/$photoName";
@@ -2151,17 +2332,29 @@ class AttendanceController extends BaseController
                     // create
                     $ovtPhoto = OvertimePhoto::create($data);
 
-                    //Update Overtime Start & Finish
+                    //Update Overtime and Attendance Overtime Start & Finish
                     $photoTime = $request->time;
 
                     if ($status == 1) {
+                        // update overtime data
                         $overtime->start_time = $photoTime;
                         $overtime->save();
+                        // update attendance data
+                        $attendance->overtime_start = $photoTime;
+                        $attendance->overtime_start_photo = $pathUpload;
+                        $attendance->overtime_start_location = $request->location;
+                        $attendance->save();
                     }
 
                     if ($status == 3) {
+                        // update overtime data
                         $overtime->end_time = $photoTime;
                         $overtime->save();
+                        // update attendance data
+                        $attendance->overtime_finish = $photoTime;
+                        $attendance->overtime_finish_photo = $pathUpload;
+                        $attendance->overtime_finish_location = $request->location;
+                        $attendance->save();
                     }
 
                     return response()->json([
@@ -2224,4 +2417,5 @@ class AttendanceController extends BaseController
             ], 400);
         }
     }
+
 }

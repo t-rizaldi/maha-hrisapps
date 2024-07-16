@@ -61,6 +61,19 @@ class WorkerController extends Controller
         }
     }
 
+    public function getWorkerById(Request $request)
+    {
+        try {
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
     public function storeWorker(Request $request)
     {
         try {
@@ -397,6 +410,55 @@ class WorkerController extends Controller
                 'code'      => 200,
                 'message'   => 'OK',
                 'data'      => []
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function changeStatusWorker(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'worker_id' => 'required',
+                'status'    => 'required|in:0,1'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get Worker
+            $worker = Worker::with(['jobTitle', 'branch', 'bank', 'document'])->where('id', $request->worker_id)->first();
+
+            if(empty($worker)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Pekerja harian tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Update
+            $worker->status = $request->status;
+            $worker->save();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $worker
             ], 200);
 
         } catch (Exception $e) {

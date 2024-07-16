@@ -126,6 +126,8 @@ Route::controller(WorkerController::class)->group(function() {
         Route::post('/', 'storeWorker');
         Route::post('/update', 'updateWorker');
         Route::delete('/', 'deleteWorker');
+
+        Route::put('/change-status', 'changeStatusWorker');
     });
 });
 

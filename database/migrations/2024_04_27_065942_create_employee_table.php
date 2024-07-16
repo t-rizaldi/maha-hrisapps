@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('nik')->nullable();
             $table->string('fullname');
             $table->string('email')->nullable();
+            $table->timestamp('email_verified_at')->nullable();
             $table->bigInteger('job_title_id')->nullable()->index();
             $table->string('phone_number')->nullable();
             $table->string('photo')->nullable();
@@ -39,7 +40,7 @@ return new class extends Migration
             $table->text('current_address')->nullable();
             $table->string('bank_account_number')->nullable();
             $table->integer('role_id')->default(1);
-            $table->integer('status')->default(0)->comment("0 = verifikasi register, 1 = pengisian data, 2 = verifikasi data, 3 = aktif, 4 = nonaktif, 5 = daftar hitam, 6 = view contract register, 7 = verifikasi register ditolak, 8 = verifikasi data ditolak");
+            $table->integer('status')->default(0)->comment("0 = verifikasi register, 1 = pengisian data, 2 = verifikasi data, 3 = aktif, 4 = nonaktif, 5 = daftar hitam, 6 = view contract register, 7 = verifikasi register ditolak, 8 = verifikasi data ditolak, 9 = Verifikasi data HRD Manager, 10 = verifikasi contract");
             $table->text('statement_rejected')->nullable();
             $table->boolean('is_daily')->default(false);
             $table->boolean('is_flexible_absent')->default(false);

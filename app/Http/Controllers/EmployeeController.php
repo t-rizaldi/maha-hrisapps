@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bank;
 use App\Models\ContractJobdesk;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeBank;
 use App\Models\EmployeeBiodata;
 use App\Models\EmployeeChild;
 use App\Models\EmployeeContract;
@@ -23,17 +25,20 @@ use GuzzleHttp\Exception\ClientException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 
 class EmployeeController extends Controller
 {
     private $api;
+    private $apiMail;
     private $client;
 
     public function __construct()
     {
         $this->api = env('URL_SERVICE_LETTER');
+        $this->apiMail = env('URL_SERVICE_MAIL');
         $this->client = new Client();
     }
 
@@ -41,7 +46,7 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
         try {
-            $employee = Employee::with(['contract', 'biodata', 'education', 'family', 'document', 'jobTitle', 'department', 'workHour', 'branch']);
+            $employee = Employee::with(['contract', 'biodata', 'education', 'family', 'document', 'jobTitle', 'department', 'workHour', 'branch', 'bank']);
 
             if($request->has('role_id')) {
                 $roleId = $request->query('role_id');
@@ -92,7 +97,7 @@ class EmployeeController extends Controller
 
             if($request->has('status')) {
                 $status = $request->query('status');
-                if(!empty($status)) $employee->where('status', $status);
+                if(!empty($status) || $status == 0) $employee->where('status', $status);
             }
 
             $employee = $employee->get();
@@ -125,7 +130,7 @@ class EmployeeController extends Controller
     public function getEmployeeById($id = null)
     {
         try {
-            $employee = Employee::with(['contract', 'biodata', 'education', 'family', 'document', 'jobTitle', 'department', 'workHour', 'branch'])
+            $employee = Employee::with(['contract', 'biodata', 'education', 'family', 'document', 'jobTitle', 'department', 'workHour', 'branch', 'bank'])
                             ->where('id', $id)
                             ->first();
 
@@ -153,6 +158,54 @@ class EmployeeController extends Controller
         }
     }
 
+    // Get Karyawan Not Absent
+
+    public function getNotAbsentEmployee(Request $request)
+    {
+        try {
+            if (!$request->has('date')) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'Date is required'
+                ], 400);
+            }
+
+            if (!$request->has('employee_id')) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => 'Employee ID is required'
+                ], 400);
+            }
+
+            $employeeIds = $request->query('employee_id', []);
+            if (!is_array($employeeIds)) {
+                $employeeIds = explode(',', $employeeIds);
+            }
+
+            $employeeNotAbsent = Employee::where('status', 3)
+                ->where('is_daily', 0)
+                ->whereNotIn('role_id', [4, 5, 6])
+                ->whereNotIn('id', $employeeIds)
+                ->where('created_at', '<=', $request->query('date'))
+                ->get();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employeeNotAbsent
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
     /*================================
                 VERIFICATION
     ================================*/
@@ -167,7 +220,8 @@ class EmployeeController extends Controller
                 'nik'               => 'required|unique:employees,nik',
                 'employee_status'   => 'required',
                 'salary'            => 'required|numeric|max:999999999',
-                'show_contract'     => 'required'
+                'show_contract'     => 'required',
+                'start_work'        => 'required|date'
             ]);
 
             if($validator->fails()) {
@@ -371,6 +425,27 @@ class EmployeeController extends Controller
 
             Employee::where('id', $request->employee_id)->update($employeeData);
 
+            $employeeBiodata = [
+                'start_work'    => $request->start_work
+            ];
+
+            $biodata = EmployeeBiodata::updateOrCreate(['employee_id'   => $request->employee_id], $employeeBiodata);
+
+            // Send Mail Verification
+            $urlVerification = URL::temporarySignedRoute(
+                'mail.verify', now()->addHours(24), ['id' => $employee->id, 'hash' => sha1($employee->getEmailForVerification())]
+            );
+
+            $mailData = [
+                'email'                 => $employee->email,
+                'name'                  => $employee->fullname,
+                'url_verification'      => $urlVerification
+            ];
+
+            $this->client->post("$this->apiMail/send-mail-verification", [
+                'json'  => $mailData
+            ]);
+
             return response()->json([
                 'status'    => 'success',
                 'code'      => 200,
@@ -476,6 +551,16 @@ class EmployeeController extends Controller
                 ], 200);
             }
 
+            // Status Check
+            if($employee->status != 2) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Karyawan tidak pada tahap verifikasi data oleh HR Recruitment',
+                    'data'      => []
+                ], 403);
+            }
+
             // Validation Check
             $validator = Validator::make($request->all(), [
                 'employee_letter_code'  => 'required|unique:employees,employee_letter_code'
@@ -492,6 +577,51 @@ class EmployeeController extends Controller
 
             // Update
             $employee->employee_letter_code = $request->employee_letter_code;
+            $employee->status = 9;
+            $employee->save();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employee
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function verifyDataPhaseTwo($employeeId)
+    {
+        try {
+            // Get Employee
+            $employee = Employee::find($employeeId);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Status Check
+            if($employee->status != 9) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Karyawan tidak pada tahap verifikasi data oleh HRD Manager',
+                    'data'      => []
+                ], 403);
+            }
+
+            // Update
             $employee->status = ($employee->show_contract == 1) ? 6 : 3;
             $employee->save();
 
@@ -581,6 +711,76 @@ class EmployeeController extends Controller
         }
     }
 
+    public function rejectDataPhaseTwo(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'employee_id'           => 'required',
+                'statement_rejected'    => 'required'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get Employee
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            $employeeStatus = $employee->status;
+
+            if($employeeStatus == 11) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Data karyawan telah ditolak sebelumnya!',
+                    'data'      => []
+                ], 200);
+            }
+
+            if($employeeStatus != 9) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak pada tahap verifikasi data HR Manager!',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Update
+            $employee->statement_rejected = $request->statement_rejected;
+            $employee->status = 11;
+            $employee->save();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employee
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
     // ========================================
 
     /*==========================
@@ -643,25 +843,24 @@ class EmployeeController extends Controller
                 'identity_regency'          => 'required|numeric',
                 'identity_district'         => 'required|numeric',
                 'identity_village'          => 'required|numeric',
-                'identity_postal_code'      => 'required|numeric:digits:5',
+                // 'identity_postal_code'      => 'required|numeric:digits:5',
                 'identity_address'          => 'required',
                 'current_province'          => 'required|numeric',
                 'current_regency'           => 'required|numeric',
                 'current_district'          => 'required|numeric',
                 'current_village'           => 'required|numeric',
-                'current_postal_code'       => 'required|numeric:digits:5',
+                // 'current_postal_code'       => 'required|numeric:digits:5',
                 'current_address'           => 'required',
                 'residence_status'          => 'required',
                 'phone_number'              => 'required|numeric',
                 'emergency_phone_number'    => 'required|numeric',
-                'start_work'                => 'required|date',
                 'gender'                    => 'required|in:L,P',
                 'birth_place'               => 'required',
                 'birth_date'                => 'required|date',
                 'religion'                  => 'required|in:islam,kristen,buddha,hindu,konghucu',
-                'blood_type'                => 'required|in:A,B,AB,O',
-                'weight'                    => 'required|numeric',
-                'height'                    => 'required|numeric',
+                // 'blood_type'                => 'required|in:A,B,AB,O',
+                // 'weight'                    => 'required|numeric',
+                // 'height'                    => 'required|numeric',
             ]);
 
             if($validator->fails()) {
@@ -734,7 +933,6 @@ class EmployeeController extends Controller
                 'residence_status'          => $request->residence_status,
                 'phone_number'              => $request->phone_number,
                 'emergency_phone_number'    => $request->emergency_phone_number,
-                'start_work'                => $request->start_work,
                 'gender'                    => $request->gender,
                 'birth_place'               => $request->birth_place,
                 'birth_date'                => $request->birth_date,
@@ -760,7 +958,6 @@ class EmployeeController extends Controller
                 'message'   => $e->getMessage()
             ], 400);
         }
-
     }
 
     // EDUCATION
@@ -791,7 +988,6 @@ class EmployeeController extends Controller
                     'primary_school'        => $education->primary_school,
                     'ps_start_year'         => $education->ps_start_year,
                     'ps_end_year'           => $education->ps_end_year,
-                    'ps_certificate'        => $education->ps_certificate
                 ];
             }
 
@@ -799,14 +995,9 @@ class EmployeeController extends Controller
                 $educationData = [
                     'employee_id'           => $employeeId,
                     'last_education'        => $education->last_education,
-                    'primary_school'        => $education->primary_school,
-                    'ps_start_year'         => $education->ps_start_year,
-                    'ps_end_year'           => $education->ps_end_year,
-                    'ps_certificate'        => $education->ps_certificate,
                     'junior_high_school'    => $education->junior_high_school,
                     'jhs_start_year'        => $education->jhs_start_year,
                     'jhs_end_year'          => $education->jhs_end_year,
-                    'jhs_certificate'       => $education->jhs_certificate
                 ];
             }
 
@@ -814,18 +1005,9 @@ class EmployeeController extends Controller
                 $educationData = [
                     'employee_id'           => $employeeId,
                     'last_education'        => $education->last_education,
-                    'primary_school'        => $education->primary_school,
-                    'ps_start_year'         => $education->ps_start_year,
-                    'ps_end_year'           => $education->ps_end_year,
-                    'ps_certificate'        => $education->ps_certificate,
-                    'junior_high_school'    => $education->junior_high_school,
-                    'jhs_start_year'        => $education->jhs_start_year,
-                    'jhs_end_year'          => $education->jhs_end_year,
-                    'jhs_certificate'       => $education->jhs_certificate,
                     'senior_high_school'    => $education->senior_high_school,
                     'shs_start_year'        => $education->shs_start_year,
                     'shs_end_year'          => $education->shs_end_year,
-                    'shs_certificate'       => $education->shs_certificate
                 ];
             }
 
@@ -833,23 +1015,13 @@ class EmployeeController extends Controller
                 $educationData = [
                     'employee_id'           => $employeeId,
                     'last_education'        => $education->last_education,
-                    'primary_school'        => $education->primary_school,
-                    'ps_start_year'         => $education->ps_start_year,
-                    'ps_end_year'           => $education->ps_end_year,
-                    'ps_certificate'        => $education->ps_certificate,
-                    'junior_high_school'    => $education->junior_high_school,
-                    'jhs_start_year'        => $education->jhs_start_year,
-                    'jhs_end_year'          => $education->jhs_end_year,
-                    'jhs_certificate'       => $education->jhs_certificate,
                     'senior_high_school'    => $education->senior_high_school,
                     'shs_start_year'        => $education->shs_start_year,
                     'shs_end_year'          => $education->shs_end_year,
-                    'shs_certificate'       => $education->shs_certificate,
                     'bachelor_university'   => $education->bachelor_university,
                     'bachelor_major'        => $education->bachelor_major,
                     'bachelor_start_year'   => $education->bachelor_start_year,
                     'bachelor_end_year'     => $education->bachelor_end_year,
-                    'bachelor_certificate'  => $education->bachelor_certificate,
                     'bachelor_gpa'          => $education->bachelor_gpa,
                     'bachelor_degree'       => $education->bachelor_degree,
                 ];
@@ -859,30 +1031,19 @@ class EmployeeController extends Controller
                 $educationData = [
                     'employee_id'           => $employeeId,
                     'last_education'        => $education->last_education,
-                    'primary_school'        => $education->primary_school,
-                    'ps_start_year'         => $education->ps_start_year,
-                    'ps_end_year'           => $education->ps_end_year,
-                    'ps_certificate'        => $education->ps_certificate,
-                    'junior_high_school'    => $education->junior_high_school,
-                    'jhs_start_year'        => $education->jhs_start_year,
-                    'jhs_end_year'          => $education->jhs_end_year,
-                    'jhs_certificate'       => $education->jhs_certificate,
                     'senior_high_school'    => $education->senior_high_school,
                     'shs_start_year'        => $education->shs_start_year,
                     'shs_end_year'          => $education->shs_end_year,
-                    'shs_certificate'       => $education->shs_certificate,
                     'bachelor_university'   => $education->bachelor_university,
                     'bachelor_major'        => $education->bachelor_major,
                     'bachelor_start_year'   => $education->bachelor_start_year,
                     'bachelor_end_year'     => $education->bachelor_end_year,
-                    'bachelor_certificate'  => $education->bachelor_certificate,
                     'bachelor_gpa'          => $education->bachelor_gpa,
                     'bachelor_degree'       => $education->bachelor_degree,
                     'master_university'     => $education->master_university,
                     'master_major'          => $education->master_major,
                     'master_start_year'     => $education->master_start_year,
                     'master_end_year'       => $education->master_end_year,
-                    'master_certificate'    => $education->master_certificate,
                     'master_gpa'            => $education->master_gpa,
                     'master_degree'         => $education->master_degree
                 ];
@@ -892,37 +1053,25 @@ class EmployeeController extends Controller
                 $educationData = [
                     'employee_id'           => $employeeId,
                     'last_education'        => $education->last_education,
-                    'primary_school'        => $education->primary_school,
-                    'ps_start_year'         => $education->ps_start_year,
-                    'ps_end_year'           => $education->ps_end_year,
-                    'ps_certificate'        => $education->ps_certificate,
-                    'junior_high_school'    => $education->junior_high_school,
-                    'jhs_start_year'        => $education->jhs_start_year,
-                    'jhs_end_year'          => $education->jhs_end_year,
-                    'jhs_certificate'       => $education->jhs_certificate,
                     'senior_high_school'    => $education->senior_high_school,
                     'shs_start_year'        => $education->shs_start_year,
                     'shs_end_year'          => $education->shs_end_year,
-                    'shs_certificate'       => $education->shs_certificate,
                     'bachelor_university'   => $education->bachelor_university,
                     'bachelor_major'        => $education->bachelor_major,
                     'bachelor_start_year'   => $education->bachelor_start_year,
                     'bachelor_end_year'     => $education->bachelor_end_year,
-                    'bachelor_certificate'  => $education->bachelor_certificate,
                     'bachelor_gpa'          => $education->bachelor_gpa,
                     'bachelor_degree'       => $education->bachelor_degree,
                     'master_university'     => $education->master_university,
                     'master_major'          => $education->master_major,
                     'master_start_year'     => $education->master_start_year,
                     'master_end_year'       => $education->master_end_year,
-                    'master_certificate'    => $education->master_certificate,
                     'master_gpa'            => $education->master_gpa,
                     'master_degree'         => $education->master_degree,
                     'doctoral_university'   => $education->doctoral_university,
                     'doctoral_major'        => $education->doctoral_major,
                     'doctoral_start_year'   => $education->doctoral_start_year,
                     'doctoral_end_year'     => $education->doctoral_end_year,
-                    'doctoral_certificate'  => $education->doctoral_certificate,
                     'doctoral_gpa'          => $education->doctoral_gpa,
                     'doctoral_degree'       => $education->doctoral_degree,
                 ];
@@ -998,60 +1147,35 @@ class EmployeeController extends Controller
                 $rules = [
                     'primary_school'    => 'required',
                     'ps_start_year'     => 'required|numeric|digits:4',
-                    'ps_end_year'       => 'required|numeric|digits:4',
-                    'ps_certificate'    => 'required|in:y,n'
+                    'ps_end_year'       => 'required|numeric|digits:4'
                 ];
             }
 
             if($lastEducation == 'smp') {
                 $rules = [
-                    'primary_school'        => 'required',
-                    'ps_start_year'         => 'required|numeric|digits:4',
-                    'ps_end_year'           => 'required|numeric|digits:4',
-                    'ps_certificate'        => 'required|in:y,n',
                     'junior_high_school'    => 'required',
                     'jhs_start_year'        => 'required|numeric|digits:4',
-                    'jhs_end_year'          => 'required|numeric|digits:4',
-                    'jhs_certificate'       => 'required|in:y,n'
+                    'jhs_end_year'          => 'required|numeric|digits:4'
                 ];
             }
 
             if($lastEducation == 'sma') {
                 $rules = [
-                    'primary_school'        => 'required',
-                    'ps_start_year'         => 'required|numeric|digits:4',
-                    'ps_end_year'           => 'required|numeric|digits:4',
-                    'ps_certificate'        => 'required|in:y,n',
-                    'junior_high_school'    => 'required',
-                    'jhs_start_year'        => 'required|numeric|digits:4',
-                    'jhs_end_year'          => 'required|numeric|digits:4',
-                    'jhs_certificate'       => 'required|in:y,n',
                     'senior_high_school'    => 'required',
                     'shs_start_year'        => 'required|numeric|digits:4',
-                    'shs_end_year'          => 'required|numeric|digits:4',
-                    'shs_certificate'       => 'required|in:y,n'
+                    'shs_end_year'          => 'required|numeric|digits:4'
                 ];
             }
 
             if($lastEducation == 'd i' || $lastEducation == 'd ii' || $lastEducation == 'd iii' || $lastEducation == 's1') {
                 $rules = [
-                    'primary_school'        => 'required',
-                    'ps_start_year'         => 'required|numeric|digits:4',
-                    'ps_end_year'           => 'required|numeric|digits:4',
-                    'ps_certificate'        => 'required|in:y,n',
-                    'junior_high_school'    => 'required',
-                    'jhs_start_year'        => 'required|numeric|digits:4',
-                    'jhs_end_year'          => 'required|numeric|digits:4',
-                    'jhs_certificate'       => 'required|in:y,n',
                     'senior_high_school'    => 'required',
                     'shs_start_year'        => 'required|numeric|digits:4',
                     'shs_end_year'          => 'required|numeric|digits:4',
-                    'shs_certificate'       => 'required|in:y,n',
                     'bachelor_university'   => 'required',
                     'bachelor_major'        => 'required',
                     'bachelor_start_year'   => 'required|numeric|digits:4',
                     'bachelor_end_year'     => 'required|numeric|digits:4',
-                    'bachelor_certificate'  => 'required|in:y,n',
                     'bachelor_gpa'          => 'required',
                     'bachelor_degree'       => 'required'
                 ];
@@ -1059,30 +1183,19 @@ class EmployeeController extends Controller
 
             if($lastEducation == 's2') {
                 $rules = [
-                    'primary_school'        => 'required',
-                    'ps_start_year'         => 'required|numeric|digits:4',
-                    'ps_end_year'           => 'required|numeric|digits:4',
-                    'ps_certificate'        => 'required|in:y,n',
-                    'junior_high_school'    => 'required',
-                    'jhs_start_year'        => 'required|numeric|digits:4',
-                    'jhs_end_year'          => 'required|numeric|digits:4',
-                    'jhs_certificate'       => 'required|in:y,n',
                     'senior_high_school'    => 'required',
                     'shs_start_year'        => 'required|numeric|digits:4',
                     'shs_end_year'          => 'required|numeric|digits:4',
-                    'shs_certificate'       => 'required|in:y,n',
                     'bachelor_university'   => 'required',
                     'bachelor_major'        => 'required',
                     'bachelor_start_year'   => 'required|numeric|digits:4',
                     'bachelor_end_year'     => 'required|numeric|digits:4',
-                    'bachelor_certificate'  => 'required|in:y,n',
                     'bachelor_gpa'          => 'required',
                     'bachelor_degree'       => 'required',
                     'master_university'     => 'required',
                     'master_major'          => 'required',
                     'master_start_year'     => 'required|numeric|digits:4',
                     'master_end_year'       => 'required|numeric|digits:4',
-                    'master_certificate'    => 'required|in:y,n',
                     'master_gpa'            => 'required',
                     'master_degree'         => 'required',
                 ];
@@ -1090,37 +1203,25 @@ class EmployeeController extends Controller
 
             if($lastEducation == 's3') {
                 $rules = [
-                    'primary_school'        => 'required',
-                    'ps_start_year'         => 'required|numeric|digits:4',
-                    'ps_end_year'           => 'required|numeric|digits:4',
-                    'ps_certificate'        => 'required|in:y,n',
-                    'junior_high_school'    => 'required',
-                    'jhs_start_year'        => 'required|numeric|digits:4',
-                    'jhs_end_year'          => 'required|numeric|digits:4',
-                    'jhs_certificate'       => 'required|in:y,n',
                     'senior_high_school'    => 'required',
                     'shs_start_year'        => 'required|numeric|digits:4',
                     'shs_end_year'          => 'required|numeric|digits:4',
-                    'shs_certificate'       => 'required|in:y,n',
                     'bachelor_university'   => 'required',
                     'bachelor_major'        => 'required',
                     'bachelor_start_year'   => 'required|numeric|digits:4',
                     'bachelor_end_year'     => 'required|numeric|digits:4',
-                    'bachelor_certificate'  => 'required|in:y,n',
                     'bachelor_gpa'          => 'required',
                     'bachelor_degree'       => 'required',
                     'master_university'     => 'required',
                     'master_major'          => 'required',
                     'master_start_year'     => 'required|numeric|digits:4',
                     'master_end_year'       => 'required|numeric|digits:4',
-                    'master_certificate'    => 'required|in:y,n',
                     'master_gpa'            => 'required',
                     'master_degree'         => 'required',
                     'doctoral_university'   => 'required',
                     'doctoral_major'        => 'required',
                     'doctoral_start_year'   => 'required|numeric|digits:4',
                     'doctoral_end_year'     => 'required|numeric|digits:4',
-                    'doctoral_certificate'  => 'required|in:y,n',
                     'doctoral_gpa'          => 'required',
                     'doctoral_degree'       => 'required',
                 ];
@@ -1490,13 +1591,19 @@ class EmployeeController extends Controller
     {
         try {
             // Validation Check
-            $validator = Validator::make($request->all(), [
+            $rules = [
                 'employee_id'               => 'required',
                 'sibling_name'              => 'required',
                 'sibling_gender'            => 'required|in:L,P',
-                'sibling_age'               => 'required|numeric',
-                'sibling_last_education'    => 'required|in:sd,smp,sma,s1,s2,s3'
-            ]);
+                'sibling_status'            => 'required|in:1,2',
+            ];
+
+            if($request->sibling_status == 1) {
+                $rules['sibling_age'] = 'required|numeric';
+                $rules['sibling_last_education'] = 'required|in:sd,smp,sma,s1,s2,s3';
+            }
+
+            $validator = Validator::make($request->all(), $rules);
 
             if($validator->fails()) {
                 return response()->json([
@@ -1581,12 +1688,18 @@ class EmployeeController extends Controller
             }
 
             // Validation Check
-            $validator = Validator::make($request->all(), [
+            $rules = [
                 'sibling_name'              => 'required',
                 'sibling_gender'            => 'required|in:L,P',
-                'sibling_age'               => 'required|numeric',
-                'sibling_last_education'    => 'required|in:sd,smp,sma,s1,s2,s3'
-            ]);
+                'sibling_status'            => 'required|in:1,2',
+            ];
+
+            if($request->sibling_status == 1) {
+                $rules['sibling_age'] = 'required|numeric';
+                $rules['sibling_last_education'] = 'required|in:sd,smp,sma,s1,s2,s3';
+            }
+
+            $validator = Validator::make($request->all(), $rules);
 
             if($validator->fails()) {
                 return response()->json([
@@ -1767,13 +1880,19 @@ class EmployeeController extends Controller
     {
         try {
             // Validation Check
-            $validator = Validator::make($request->all(), [
+            $rules = [
                 'employee_id'             => 'required',
                 'child_name'              => 'required',
                 'child_gender'            => 'required|in:L,P',
-                'child_age'               => 'required|numeric',
-                'child_last_education'    => 'required|in:belum sekolah,sd,smp,sma,s1,s2,s3'
-            ]);
+                'child_status'            => 'required|in:1,2'
+            ];
+
+            if($request->child_status == 1) {
+                $rules['child_age'] = 'required|numeric';
+                $rules['child_last_education'] = 'required|in:belum sekolah,sd,smp,sma,s1,s2,s3';
+            }
+
+            $validator = Validator::make($request->all(), $rules);
 
             if($validator->fails()) {
                 return response()->json([
@@ -1858,12 +1977,18 @@ class EmployeeController extends Controller
             }
 
             // Validation Check
-            $validator = Validator::make($request->all(), [
+            $rules = [
                 'child_name'              => 'required',
                 'child_gender'            => 'required|in:L,P',
-                'child_age'               => 'required|numeric',
-                'child_last_education'    => 'required|in:belum sekolah,sd,smp,sma,s1,s2,s3'
-            ]);
+                'child_status'            => 'required|in:1,2'
+            ];
+
+            if($request->child_status == 1) {
+                $rules['child_age'] = 'required|numeric';
+                $rules['child_last_education'] = 'required|in:belum sekolah,sd,smp,sma,s1,s2,s3';
+            }
+
+            $validator = Validator::make($request->all(), $rules);
 
             if($validator->fails()) {
                 return response()->json([
@@ -1956,21 +2081,209 @@ class EmployeeController extends Controller
         }
     }
 
+    // BANK
+    public function getEmployeeBank($employeeId)
+    {
+        try {
+            // Get Employee
+            $employee = Employee::find($employeeId);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Get Employee Bank
+            $employeeBank = EmployeeBank::with(['bank'])->where('employee_id', $employeeId)->first();
+
+            if(empty($employeeBank)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Data bank karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employeeBank
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function storeEmployeeBank(Request $request)
+    {
+        try {
+            // Valiation Check
+            $validator = Validator::make($request->all(), [
+                'employee_id'       => 'required',
+                'bank_id'           => 'required',
+                'account_number'    => 'required',
+                'account_name'      => 'required'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get Employee
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Get Bank
+            $bank = Bank::find($request->bank_id);
+
+            if(empty($bank)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Bank tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Store
+            $data = [
+                'employee_id'       => $request->employee_id,
+                'bank_id'           => $request->bank_id,
+                'account_number'    => $request->account_number,
+                'account_name'      => $request->account_name,
+            ];
+
+            $employeeBank = EmployeeBank::updateOrCreate(['employee_id' => $request->employee_id], $data);
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employeeBank
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    // PHOTO SELFIE
+    public function storeEmployeePhoto(Request $request)
+    {
+        try {
+            // Validation Check
+            $validator = Validator::make($request->all(), [
+                'employee_id'       => 'required',
+                'photo'             => 'required|image|file|max:5120',
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // GET EMPLOYEE
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // STORE
+            $employeeId = $request->employee_id;
+
+            // photo
+            if($request->hasFile('photo')) {
+                $photoFile = $request->file('photo');
+
+                $photoPath = $photoFile->store("uploads/employee/$employeeId/profile/photo");
+
+                if(!empty($employee->photo)) {
+                    if(Storage::exists($employee->photo)) Storage::delete($employee->photo);
+                }
+
+                $employee->photo = $photoPath;
+                $employee->save();
+
+                return response()->json([
+                    'status'    => 'success',
+                    'code'      => 200,
+                    'message'   => 'OK',
+                    'data'      => $employee
+                ], 200);
+
+            } else {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 500,
+                    'message'   => 'Photo tidak terdeteksi!',
+                    'data'      => []
+                ], 500);
+            }
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
     // DOCUMENT
     public function createEmployeeDocument(Request $request)
     {
         try {
             // Validation Check
             $validator = Validator::make($request->all(), [
-                'employee_id'   => 'required',
-                'photo'         => 'image|file|max:5120',
-                'ktp'           => 'mimes:pdf|file|max:5120',
-                'kk'            => 'mimes:pdf|file|max:5120',
-                'certificate'   => 'mimes:pdf|file|max:5120',
-                'bank_account'  => 'mimes:pdf|file|max:5120',
-                'npwp'          => 'mimes:pdf|file|max:5120',
-                'bpjs_ktn'      => 'mimes:pdf|file|max:5120',
-                'bpjs_kes'      => 'mimes:pdf|file|max:5120',
+                'employee_id'       => 'required',
+                'photo'             => 'image|file|max:5120',
+                'ktp'               => 'mimes:pdf|file|max:5120',
+                'kk'                => 'mimes:pdf|file|max:5120',
+                'certificate'       => 'mimes:pdf|file|max:5120',
+                'grade_transcript'  => 'mimes:pdf|file|max:5120',
+                'certificate_skill' => 'mimes:pdf|file|max:5120',
+                'bank_account'      => 'mimes:pdf|file|max:5120',
+                'npwp'              => 'mimes:pdf|file|max:5120',
+                'bpjs_ktn'          => 'mimes:pdf|file|max:5120',
+                'bpjs_kes'          => 'mimes:pdf|file|max:5120',
             ]);
 
             if($validator->fails()) {
@@ -2062,6 +2375,38 @@ class EmployeeController extends Controller
                 if(!empty($document)) {
                     if(!empty($document->certificate)) {
                         if(Storage::exists($document->certificate)) Storage::delete($document->certificate);
+                    }
+                }
+            }
+
+            // Grade Transkrip
+            if($request->hasFile('grade_transcript')) {
+                $gradeTranscript = $request->file('grade_transcript');
+                $gradeTranscriptOriName = $gradeTranscript->getClientOriginalName();
+                $gradeTranscriptName = $employeeId . '_' . Str::uuid() . '_' . $gradeTranscriptOriName;
+
+                $gradeTranscriptPath = $gradeTranscript->storeAs("uploads/employee/$employeeId/document", $gradeTranscriptName);
+                $documentData['grade_transcript'] = $gradeTranscriptPath;
+
+                if(!empty($document)) {
+                    if(!empty($document->grade_transcript)) {
+                        if(Storage::exists($document->grade_transcript)) Storage::delete($document->grade_transcript);
+                    }
+                }
+            }
+
+            // certificate skill
+            if($request->hasFile('certificate_skill')) {
+                $certificateSkillFile = $request->file('certificate_skill');
+                $certificateSkillOriName = $certificateSkillFile->getClientOriginalName();
+                $certificateSkillFileName = $employeeId . '_' . Str::uuid() . '_' . $certificateSkillOriName;
+
+                $certificateSkillPath = $certificateSkillFile->storeAs("uploads/employee/$employeeId/document", $certificateSkillFileName);
+                $documentData['certificate_skill'] = $certificateSkillPath;
+
+                if(!empty($document)) {
+                    if(!empty($document->certificate_skill)) {
+                        if(Storage::exists($document->certificate_skill)) Storage::delete($document->certificate_skill);
                     }
                 }
             }
@@ -2385,7 +2730,7 @@ class EmployeeController extends Controller
     }
 
     // SKILL
-    public function updateEmployeeSkill($employeeId, Request $request)
+    public function getEmployeeSkill($employeeId)
     {
         try {
             // Get Employee
@@ -2395,7 +2740,51 @@ class EmployeeController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Karyawan tidak ditemukan'
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Get Skill
+            $employeeSkill = EmployeeSkill::where('employee_id', $employeeId)->get();
+
+            if(count($employeeSkill) < 1) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Skill Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employeeSkill
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function storeEmployeeSkill($employeeId, Request $request)
+    {
+        try {
+            // Get Employee
+            $employee = Employee::find($employeeId);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
                 ], 200);
             }
 
@@ -2414,28 +2803,30 @@ class EmployeeController extends Controller
 
             // array to string
             $skills = $request->skills;
+            $skillData = [];
 
             if(is_array($skills)) {
-                $skillString = '';
-
                 foreach($skills as $skill) {
-                    $skillString .= "$skill,";
+                    if(!empty($skill)) {
+                        $data = [
+                            'employee_id'   => $employeeId,
+                            'skill'         => $skill
+                        ];
+
+                        EmployeeSkill::create($data);
+                        $skillData[] = $skill;
+                    }
                 }
             }
-
-            // CREATE
-            $skillData = [
-                'employee_id'   => $employeeId,
-                'skill'         => $skillString
-            ];
-
-            $employeeSkill = EmployeeSkill::updateOrCreate(['employee_id' => $employeeId], $skillData);
 
             return response()->json([
                 'status'    => 'success',
                 'code'      => 200,
                 'message'   => 'OK',
-                'data'      => $employeeSkill
+                'data'      => [
+                    'employee_id'   => $employeeId,
+                    'skill'         => $skillData
+                ]
             ], 200);
 
         } catch (Exception $e) {
@@ -2447,9 +2838,24 @@ class EmployeeController extends Controller
         }
     }
 
-    public function getEmployeeSkill($employeeId)
+    public function updateEmployeeSkill($employeeId, Request $request)
     {
         try {
+            // validation check
+            $validator = Validator::make($request->all(), [
+                'skill_id'  => 'required',
+                'skill'     => 'required'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
             // Get Employee
             $employee = Employee::find($employeeId);
 
@@ -2463,43 +2869,109 @@ class EmployeeController extends Controller
             }
 
             // Get Skill
-            $employeeSkill = EmployeeSkill::where('employee_id', $employeeId)->first();
+            $skill = EmployeeSkill::find($request->skill_id);
 
-            if(empty($employeeSkill)) {
+            if(empty($skill)) {
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Skill Karyawan tidak ditemukan',
+                    'message'   => 'Skill tidak ditemukan',
                     'data'      => []
                 ], 200);
             }
 
-            $skills = $employeeSkill->skill;
-
-            $skillArr = explode(',', $skills);
-            $skillData = [];
-
-            foreach($skillArr as $item) {
-                $skill = Skill::find($item);
-
-                if(!empty($skill)) {
-                    $skillData[] = [
-                        'id'            => $skill->id,
-                        'name'          => $skill->name,
-                        'info_url'      => $skill->info_url,
-                        'type'          => $skill->type,
-                    ];
-                }
+            // CHeck kesesuaian
+            if($skill->employee_id != $employee->id) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Skill dan karyawan tidak sesuai!',
+                    'data'      => []
+                ], 403);
             }
+
+            // update
+            $data = [
+                'skill' => $request->skill
+            ];
+
+            EmployeeSkill::where('id', $skill->id)->update($data);
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => EmployeeSkill::find($skill->id)
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function deleteEmployeeSkill(Request $request)
+    {
+        try {
+            // validation check
+            $validator = Validator::make($request->all(), [
+                'employee_id'   => 'required',
+                'skill_id'      => 'required'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get Employee
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Get Skill
+            $skill = EmployeeSkill::find($request->skill_id);
+
+            if(empty($skill)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Skill tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // CHeck kesesuaian
+            if($skill->employee_id != $employee->id) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'   => 'Skill dan karyawan tidak sesuai!',
+                    'data'      => []
+                ], 403);
+            }
+
+            // Delete
+            EmployeeSkill::where('id', $skill->id)->delete();
 
             return response()->json([
                 'status'    => 'success',
                 'code'      => 200,
                 'message'   => 'OK',
-                'data'      => [
-                    'employee_id'   => $employeeId,
-                    'skills'        => $skillData
-                ]
+                'data'      => []
             ], 200);
 
         } catch (Exception $e) {
@@ -3027,7 +3499,17 @@ class EmployeeController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Karyawan tidak ditemukan'
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            if($employee->status != 6) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak pada tahap meninjau kontrak',
+                    'data'      => []
                 ], 200);
             }
 
@@ -3057,7 +3539,63 @@ class EmployeeController extends Controller
             $employeeContract->status = 1;
             $employeeContract->save();
 
-            $employee->status = 3;
+            $employee->status = 10;
+            $employee->save();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employee
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    // ========================================
+
+    /*==========================
+            SETTINGS
+    ==========================*/
+
+    public function employeeOvertimeSetting(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+               'employee_id'    => 'required',
+               'is_overtime'    => 'required|boolean',
+               'overtime_limit' => 'nullable|numeric|max:100|min:0'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors()
+                ], 400);
+            }
+
+            // Get Employee
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // UPDATE
+            $employee->is_overtime = $request->is_overtime;
+            $employee->overtime_limit = $request->overtime_limit;
             $employee->save();
 
             return response()->json([

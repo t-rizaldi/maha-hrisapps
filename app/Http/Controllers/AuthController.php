@@ -8,8 +8,10 @@ use App\Models\Employee;
 use App\Models\JobTitle;
 use App\Models\RefreshToken;
 use Exception;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 
@@ -22,7 +24,8 @@ class AuthController extends Controller
             // validation check
             $validator = Validator::make($request->all(), [
                 'fullname'      => 'required|min:3|max:100',
-                'email'         => 'required|email|unique:employees,email|ends_with:@mahasejahtera.com',
+                // 'email'         => 'required|email|unique:employees,email|ends_with:@mahasejahtera.com',
+                'email'         => 'required|email|unique:employees,email',
                 'job_title_id'  => 'required',
                 'department_id' => 'required',
                 'branch_code'   => 'required',
@@ -142,9 +145,9 @@ class AuthController extends Controller
             if(empty($employee)) {
                 return response()->json([
                     'status'    => 'error',
-                    'code'      => 400,
+                    'code'      => 403,
                     'message'   => 'email or password wrong'
-                ], 400);
+                ], 403);
             }
 
             // cek invalid password
@@ -153,26 +156,34 @@ class AuthController extends Controller
             if(!$isValidPassword) {
                 return response()->json([
                     'status'    => 'error',
-                    'code'      => 400,
+                    'code'      => 403,
                     'message'   => 'email or password wrong'
-                ], 400);
+                ], 403);
             }
 
             // status check
             if($employee->status == 0) {
                 return response()->json([
                     'status'    => 'error',
-                    'code'      => 400,
+                    'code'      => 403,
                     'message'   => 'Unverified account'
-                ], 400);
+                ], 403);
             }
 
             if($employee->status == 4) {
                 return response()->json([
                     'status'    => 'error',
-                    'code'      => 400,
+                    'code'      => 403,
                     'message'   => 'Inactive account'
-                ], 400);
+                ], 403);
+            }
+
+            if($employee->status == 1 && empty($employee->email_verified_at)) {
+                return response()->json([
+                    'status'    => 'pending',
+                    'code'      => 403,
+                    'message'   => 'Silahkan periksa Email lalu Klik Tautan di email untuk memverifikasi akun anda!'
+                ], 403);
             }
 
             return response()->json([
@@ -232,6 +243,38 @@ class AuthController extends Controller
                 'message'   => $e->getMessage()
             ], 400);
         }
+    }
+
+    // VERIFICATION MAIL
+    public function verificationMail($employeeId, $hash)
+    {
+        $employee = Employee::findOrFail($employeeId);
+
+        if (! hash_equals((string) $hash, sha1($employee->getEmailForVerification()))) {
+            abort(403);
+        }
+
+        if ($employee->hasVerifiedEmail()) {
+            // return response()->json([
+            //     'status'    => 'success',
+            //     'code'      => 200,
+            //     'message'   => 'Akun telah diverifikasi'
+            // ]);
+
+            return "<h1>Akun berhasil diverifikasi</h1>";
+        }
+
+        if ($employee->markEmailAsVerified()) {
+            event(new Verified($employee));
+        }
+
+        // return response()->json([
+        //     'status'    => 'success',
+        //     'code'      => 200,
+        //     'message'   => 'Akun telah diverifikasi'
+        // ]);
+
+        return "<h1>Akun berhasil diverifikasi</h1>";
     }
 
     // GET REFRESH TOKEN
@@ -304,6 +347,79 @@ class AuthController extends Controller
                 'message'   => 'OK',
                 'id'        => $createdRefreshToken->id
             ], 201);
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function changePassword(Request $request)
+    {
+        try {
+            // Validation Check
+            $validator = Validator::make($request->all(), [
+                'employee_id'       => 'required',
+                'old_password'      => 'required',
+                'password'          => 'required|confirmed|min:6'
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get Employee
+            $employee = Employee::find($request->employee_id);
+
+            if(empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan'
+                ], 200);
+            }
+
+            // cek password lama sama atau tidak
+            if(!Hash::check($request->old_password, $employee->password)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'       => 'Kata sandi lama salah',
+                    'data'      => []
+                ], 403);
+            }
+
+            // kalau password baru sama dengan yang lama
+            if(strcmp($request->old_password, $request->password) == 0) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 403,
+                    'message'       => 'Kata sandi baru tidak boleh sama dengan yang lama',
+                    'data'      => []
+                ], 403);
+            }
+
+            // Update
+            $data = [
+                'password'  => Hash::make($request->password)
+            ];
+
+            Employee::where('id', $request->employee_id)->update($data);
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => Employee::find($request->employee_id)
+            ], 200);
+
         } catch (Exception $e) {
             return response()->json([
                 'status'    => 'error',

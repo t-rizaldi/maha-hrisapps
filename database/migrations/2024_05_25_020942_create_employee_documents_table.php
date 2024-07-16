@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('ktp')->nullable();
             $table->string('kk')->nullable();
             $table->string('certificate')->nullable();
+            $table->string('grade_transcript')->nullable();
+            $table->string('certificate_skill')->nullable();
             $table->string('bank_account')->nullable();
             $table->string('npwp')->nullable();
             $table->string('bpjs_ktn')->nullable();

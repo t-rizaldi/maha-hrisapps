@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('employee_skills', function (Blueprint $table) {
+        Schema::create('employee_banks', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('employee_id')->index();
-            $table->text('skill');
+            $table->bigInteger('bank_id')->index();
+            $table->string('account_number');
+            $table->string('account_name');
             $table->timestamps();
         });
     }
@@ -24,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('employee_skills');
+        Schema::dropIfExists('employee_banks');
     }
 };

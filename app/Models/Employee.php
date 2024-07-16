@@ -4,8 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 
-class Employee extends Model
+class Employee extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory;
 
@@ -46,12 +48,14 @@ class Employee extends Model
     ];
 
     protected $hidden = [
+        'photo',
         'signature',
         'created_at',
         'updated_at',
     ];
 
     protected $appends = [
+        'photo_url',
         'signature_url',
         'status_label'
     ];
@@ -60,6 +64,15 @@ class Employee extends Model
     {
         if(!empty($this->attributes['signature'])) {
             return url('public/storage/' . $this->attributes['signature']);
+        } else {
+            return null;
+        }
+    }
+
+    public function getPhotoUrlAttribute()
+    {
+        if(!empty($this->attributes['photo'])) {
+            return url('public/storage/' . $this->attributes['photo']);
         } else {
             return null;
         }
@@ -78,7 +91,7 @@ class Employee extends Model
                 $statusLabel = 'Pengisian Data';
                 break;
             case '2':
-                $statusLabel = 'Verifikasi Data';
+                $statusLabel = 'Verifikasi Data HR Recruitment';
                 break;
             case '3':
                 $statusLabel = 'Aktif';
@@ -97,6 +110,15 @@ class Employee extends Model
                 break;
             case '8':
                 $statusLabel = 'Data Ditolak';
+                break;
+            case '9':
+                $statusLabel = 'Verifikasi Data HR Manager';
+                break;
+            case '10':
+                $statusLabel = 'Verifikasi Kontrak';
+                break;
+            case '11':
+                $statusLabel = 'Data di tolak HR Manager';
                 break;
             default:
                 $statusLabel = '-';
@@ -140,5 +162,10 @@ class Employee extends Model
 
     public function workHour() {
         return $this->hasOne(EmployeeWorkHour::class, 'employee_id', 'id');
+    }
+
+    public function bank()
+    {
+        return $this->hasOne(EmployeeBank::class, 'employee_id', 'id');
     }
 }

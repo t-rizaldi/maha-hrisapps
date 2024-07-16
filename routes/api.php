@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BankController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\JobTitleController;
 use App\Http\Controllers\SkillController;
+use App\Http\Controllers\WorkerController;
 use App\Http\Controllers\WorkHourController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +23,8 @@ Route::controller(AuthController::class)->group(function() {
     Route::post('/logout', 'logout')->name('logout');
     Route::post('/refresh-token', 'refreshTokenStore')->name('refresh-token.store');
     Route::get('/refresh-token/{data}', 'getRefreshToken')->name('refresh-token');
+    Route::post('/change-password', 'changePassword')->name('change-password');
+    Route::get('/verify-email/{id}/{hash}', 'verificationMail')->name('mail.verify')->middleware('signed');
 });
 
 // DEPARTMENT
@@ -105,14 +109,39 @@ Route::controller(WorkHourController::class)->group(function() {
     });
 });
 
+// BANK
+Route::controller(BankController::class)->group(function() {
+    Route::prefix('bank')->group(function() {
+        Route::name('bank')->group(function() {
+            Route::get('/', 'index');
+            Route::get('/{data}', 'detail')->name('.detail');
+        });
+    });
+});
+
+// WORKER
+Route::controller(WorkerController::class)->group(function() {
+    Route::prefix('worker')->group(function() {
+        Route::get('/', 'getWorker');
+        Route::post('/', 'storeWorker');
+        Route::post('/update', 'updateWorker');
+        Route::delete('/', 'deleteWorker');
+    });
+});
+
 // EMPLOYEE
 Route::controller(EmployeeController::class)->group(function() {
     Route::post('/verify-register', 'verifyRegister')->name('verify-register');
     Route::put('/reject-register', 'rejectRegister')->name('reject-register');
     Route::put('/verify-data/{data}', 'verifyData')->name('verify-data');
+    Route::put('/verify-data-phase-two/{data}', 'verifyDataPhaseTwo')->name('verify-data-phase-two');
     Route::put('/reject-data', 'rejectData')->name('reject-data')   ;
+    Route::put('/reject-data-phase-two', 'rejectDataPhaseTwo')->name('reject-data-phase-two')   ;
     Route::get('/', 'index')->name('get-all-employees');
     Route::get('/{data}', 'getEmployeeById')->name('get-employee');
+
+    //GET NOT ABSENT EMPLOYEE
+    Route::get('/employee/not-absent', 'getNotAbsentEmployee')->name('not-absent');
 
     // BIODATA
     Route::get('/employee-biodata/{data}', 'getEmployeeBiodata')->name('employee-biodata');
@@ -137,6 +166,11 @@ Route::controller(EmployeeController::class)->group(function() {
     Route::post('/employee-children', 'createEmployeeChild')->name('employee-children.store');
     Route::put('/employee-children/{data}/{data1}', 'updateEmployeeChild')->name('employee-children.update');
     Route::delete('/employee-children/{data}/{data1}', 'deleteEmployeeChild')->name('employee-children.delete');
+    // BANK
+    Route::get('/employee-bank/{data}', 'getEmployeeBank')->name('employee-bank');
+    Route::post('/employee-bank', 'storeEmployeeBank')->name('employee-bank.store');
+    // PROFILE PHOTO
+    Route::post('/employee-selfie', 'storeEmployeePhoto')->name('employee-selfie.store');
     // DOCUMENT
     Route::get('/employee-document/{data}', 'getEmployeeDocument')->name('employee-document');
     Route::post('/employee-document', 'createEmployeeDocument')->name('employee-document.store');
@@ -147,7 +181,9 @@ Route::controller(EmployeeController::class)->group(function() {
     Route::post('/employee-signature/{data}', 'createEmployeeSignature')->name('employee-signature.create');
     // SKILL
     Route::get('/employee-skill/{data}', 'getEmployeeSkill')->name('employee-skill');
-    Route::post('/employee-skill/{data}', 'updateEmployeeSkill')->name('employee-skill.update');
+    Route::post('/employee-skill/{data}', 'storeEmployeeSkill')->name('employee-skill.store');
+    Route::put('/employee-skill/{data}', 'updateEmployeeSkill')->name('employee-skill.update');
+    Route::delete('/employee-skill', 'deleteEmployeeSkill')->name('employee-skill.delete');
     // WORK HOUR
     Route::get('/employee-work-hour/{data}', 'getEmployeeWorkHour')->name('employee-work-hour');
     Route::post('/employee-work-hour', 'createEmployeeWorkHour')->name('employee-work-hour.create');
@@ -164,6 +200,13 @@ Route::controller(EmployeeController::class)->group(function() {
             Route::get('/{data1}/{data2}', 'getContractJobdesk');
             Route::post('/{data}', 'createContractJobdesk')->name('.store');
             Route::delete('/{data1}/{data2}', 'deleteContractJobdesk')->name('.delete');
+        });
+    });
+
+    // SETTINGS
+    Route::prefix('setting')->group(function() {
+        Route::name('setting')->group(function() {
+            Route::post('/overtime', 'employeeOvertimeSetting')->name('.overtime');
         });
     });
 });

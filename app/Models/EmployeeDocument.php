@@ -15,6 +15,8 @@ class EmployeeDocument extends Model
         'ktp',
         'kk',
         'certificate',
+        'grade_transcript',
+        'certificate_skill',
         'bank_account',
         'npwp',
         'bpjs_ktn',
@@ -26,6 +28,8 @@ class EmployeeDocument extends Model
         'ktp',
         'kk',
         'certificate',
+        'grade_transcript',
+        'certificate_skill',
         'bank_account',
         'npwp',
         'bpjs_ktn',
@@ -39,6 +43,8 @@ class EmployeeDocument extends Model
         'ktp_url',
         'kk_url',
         'certificate_url',
+        'grade_transcript_url',
+        'certificate_skill_url',
         'bank_account_url',
         'npwp_url',
         'bpjs_ktn_url',
@@ -76,6 +82,24 @@ class EmployeeDocument extends Model
     {
         if(!empty($this->attributes['certificate'])) {
             return url('public/storage/' . $this->attributes['certificate']);
+        } else {
+            return null;
+        }
+    }
+
+    public function getGradeTranscriptUrlAttribute()
+    {
+        if(!empty($this->attributes['grade_transcript'])) {
+            return url('public/storage/' . $this->attributes['grade_transcript']);
+        } else {
+            return null;
+        }
+    }
+
+    public function getCertificateSkillUrlAttribute()
+    {
+        if(!empty($this->attributes['certificate_skill'])) {
+            return url('public/storage/' . $this->attributes['certificate_skill']);
         } else {
             return null;
         }

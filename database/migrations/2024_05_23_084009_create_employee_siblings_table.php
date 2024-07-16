@@ -16,6 +16,7 @@ return new class extends Migration
             $table->bigInteger('employee_id')->index();
             $table->string('sibling_name')->nullable();
             $table->string('sibling_gender')->nullable();
+            $table->integer('sibling_status')->nullable();
             $table->integer('sibling_age')->nullable();
             $table->string('sibling_last_education')->nullable();
             $table->string('sibling_last_job_title')->nullable();

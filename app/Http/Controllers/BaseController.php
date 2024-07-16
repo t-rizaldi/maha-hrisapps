@@ -54,6 +54,29 @@ class BaseController extends Controller
         }
     }
 
+    public function getEmployeeNotAbsent($date, $ids = [])
+    {
+        try {
+            $response = $this->client->get("$this->apiEmployee/employee/not-absent", [
+                'query' => [
+                    'employee_id' => implode(',', $ids),
+                    'date' => $date
+                ]
+            ]);
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+            if ($responseData['status'] === 'success') {
+                return $responseData['data'];
+            }
+            return [];
+        } catch (ClientException $e) {
+            $response = $e->getResponse();
+            $body = $response->getBody()->getContents();
+            $responseData = json_decode($body, true);
+            return [];
+        }
+    }
+
     public function getEmployeeByParams($paramsArr = [])
     {
         try {

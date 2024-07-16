@@ -40,6 +40,19 @@ Route::controller(AttendanceController::class)->group(function() {
             });
         });
     });
+
+    // Monitoring Attendance
+    Route::get('/today-statistic', 'todayStatistics');
+    Route::prefix('history')->group(function () {
+        Route::get('/{data}/{data1}', 'attendanceHistory')->name('history');
+        Route::get('/overtime/{startDate}/{endDate}', 'overtimeHistory');
+        Route::get('/late/{startDate}/{endDate}', 'lateHistory');
+        Route::get('/not_absent_home/{startDate}/{endDate}', 'notAbsentHomeHistory');
+        Route::get('/permit/{startDate}/{endDate}', 'permitHistory');
+        Route::get('/sick/{startDate}/{endDate}', 'sickHistory');
+        Route::get('/leave/{startDate}/{endDate}', 'leaveHistory');
+        Route::get('/not_absent/{startDate}/{endDate}', 'notPresentHistory');
+    });
 });
 
 // Permit

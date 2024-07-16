@@ -2,10 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\ApiResponse;
 use App\Models\Attendance;
+use App\Models\LeaveApplication;
 use App\Models\Overtime;
 use App\Models\OvertimePhoto;
 use App\Models\OvertimeTracking;
+use App\Models\PermitApplication;
+use App\Models\SickApplication;
+use Carbon\Carbon;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
@@ -149,62 +154,6 @@ class AttendanceController extends BaseController
             ], 200);
 
         } catch (Exception $e) {
-            return response()->json([
-                'status'    => 'error',
-                'code'      => 400,
-                'message'   => $e->getMessage()
-            ], 400);
-        }
-    }
-
-    public function attendanceHistory($startDate, $endDate, Request $request)
-    {
-        try {
-            $attendances = Attendance::whereBetween('attendance_date', [$startDate, $endDate]);
-
-            $status = 0;
-
-            if($request->has('status')) {
-                $statusReq = $request->query('status');
-                if($statusReq == 1) $status = $statusReq;
-            }
-
-            if($request->has('branch_code')) {
-                $branchCode = $request->query('branch_code');
-                if(!empty($branchCode)) $attendances->where('branch_attendance', $branchCode);
-            }
-
-            if($request->has('employee_id')) {
-                $employeeId = $request->query('employee_id');
-                if(!empty($employeeId)) $attendances->where('employee_id', $employeeId);
-            }
-
-            $attendances = $attendances->get();
-
-            $filteredData = $attendances->filter(function($item) use ($status) {
-                return $item['employee']['is_daily'] == $status;
-            });
-
-            if(count($filteredData) < 1) {
-                return response()->json([
-                    'status'    => 'error',
-                    'code'      => 204,
-                    'message'   => 'Data absensi tidak ditemukan',
-                    'data'      => []
-                ], 200);
-            }
-
-            return response()->json([
-                'status'    => 'success',
-                'code'      => 200,
-                'message'   => 'OK',
-                'data'      => [
-                    'count'         => count($filteredData->values()),
-                    'attendance'    => $filteredData->values()
-                ]
-            ], 200);
-
-        }  catch (Exception $e) {
             return response()->json([
                 'status'    => 'error',
                 'code'      => 400,
@@ -559,6 +508,612 @@ class AttendanceController extends BaseController
             ], 400);
         }
     }
+
+    /*=================================
+            Monitoring Attendance
+    =================================*/
+
+    public function todayStatistics()
+    {
+        try {
+            $today = date('Y-m-d');
+            $attendances = Attendance::where('attendance_date', $today)->get();
+            $statusEmployee = 0;
+            $statusEmployeeDaily = 1;
+
+            $attendancesEmployee = $attendances->filter(function ($item) use ($statusEmployee) {
+                return $item['employee']['is_daily'] == $statusEmployee;
+            });
+
+            $attendancesEmployeeDaily = $attendances->filter(function ($item) use ($statusEmployeeDaily) {
+                return $item['employee']['is_daily'] == $statusEmployeeDaily;
+            });
+
+            $employeeActive = $this->getEmployeeByParams([
+                'status'    => 3
+            ]);
+
+            $totalEmployee = count($employeeActive['data']);
+
+            $totalAttendaceEmployee = $attendancesEmployee->count();
+
+            $totalAttendaceEmployeeDaily = $attendancesEmployeeDaily->count();
+
+            $totalLate = $attendances->where('is_late', 1)->count();
+
+            $totalNotAbsent = $attendances->where('clock_out', null)->count();
+
+            $totalOvertimeEmployee = $attendancesEmployee->where('overtime_start', '!=', null)->count();
+            $totalOvertimeEmployeeDaily = $attendancesEmployeeDaily->where('overtime_start', '!=', null)->count();
+
+            $totalPermit = PermitApplication::where('permit_start_date', '<=', $today)
+                ->where('permit_end_date', '>=', $today)
+                ->where('approved_status', 5)
+                ->count();
+
+            $totalSick = SickApplication::where('sick_start_date', '<=', $today)
+                ->where('sick_end_date', '>=', $today)
+                ->where('approved_status', 5)
+                ->count();
+
+            $totalLeave = LeaveApplication::where('leave_start_date', '<=', $today)
+                ->where('leave_end_date', '>=', $today)
+                ->where('approved_status', 5)
+                ->count();
+
+
+            $attendanceToday = Attendance::where('attendance_date', $today)
+                ->whereIn('clock_in_status', [1, 2, 3, 5])
+                ->pluck('employee_id')
+                ->toArray();
+
+            $permitID = PermitApplication::where('permit_start_date', '<=', $today)
+                ->where('permit_end_date', '>=', $today)
+                ->where('approved_status', 5)
+                ->where(function ($query) {
+                    $query->where('permit_type_id', '!=', 10)
+                        ->orWhereNull('permit_type_id');
+                })
+                ->pluck('employee_id')
+                ->toArray();
+
+            $sickID = SickApplication::where('sick_start_date', '<=', $today)
+                ->where('sick_end_date', '>=', $today)
+                ->where('approved_status', 5)
+                ->pluck('employee_id')
+                ->toArray();
+
+            $leaveID = LeaveApplication::where('leave_start_date', '<=', $today)
+                ->where('leave_end_date', '>=', $today)
+                ->where('approved_status', 5)
+                ->pluck('employee_id')
+                ->toArray();
+
+            $employeeID = array_merge($attendanceToday, $permitID, $sickID, $leaveID);
+            $employeeID = array_unique($employeeID);
+
+            $employeeNotAbsent = $this->getEmployeeNotAbsent($today, $employeeID);
+
+            return new ApiResponse('success', 200, 'OK', [
+                'total_employee'                      => $totalEmployee,
+                'total_attendance_employee'          => $totalAttendaceEmployee,
+                'total_attendance_daily'              => $totalAttendaceEmployeeDaily,
+                'total_late'                          => $totalLate,
+                'total_not_absent_home'               => $totalNotAbsent,
+                'total_overtime_employee'             => $totalOvertimeEmployee,
+                'total_overtime_employee_daily'       => $totalOvertimeEmployeeDaily,
+                'total_permit'                        => $totalPermit,
+                'total_sick'                          => $totalSick,
+                'total_leave'                         => $totalLeave,
+                'total_employee_not_absent'           => count($employeeNotAbsent)
+            ]);
+        } catch (Exception $e) {
+            return new ApiResponse('error', 400, $e->getMessage());
+        }
+    }
+
+    public function attendanceHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $attendances = Attendance::whereBetween('attendance_date', [$startDate, $endDate]);
+
+            $status = 0;
+
+            if($request->has('status')) {
+                $statusReq = $request->query('status');
+                if($statusReq == 1) $status = $statusReq;
+            }
+
+            if($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                if(!empty($branchCode)) $attendances->where('branch_attendance', $branchCode);
+            }
+
+            if($request->has('employee_id')) {
+                $employeeId = $request->query('employee_id');
+                if(!empty($employeeId)) $attendances->where('employee_id', $employeeId);
+            }
+
+            $attendances = $attendances->get();
+
+            $filteredData = $attendances->filter(function($item) use ($status) {
+                return $item['employee']['is_daily'] == $status;
+            });
+
+            if(count($filteredData) < 1) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Data absensi tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => [
+                    'count'         => count($filteredData->values()),
+                    'attendance'    => $filteredData->values()
+                ]
+            ], 200);
+
+        }  catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function overtimeHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $overtimes = Attendance::whereBetween('attendance_date', [$startDate, $endDate])->where('overtime_start', '!=', null);
+            $status = 0;
+            if ($request->has('status')) {
+                $statusReq = $request->query('status');
+                if ($statusReq == 1) $status = $statusReq;
+            }
+
+            if ($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                if (!empty($branchCode)) $overtimes->where('branch_attendance', $branchCode);
+            }
+
+            if ($request->has('employee_id')) {
+                $employeeId = $request->query('employee_id');
+                if (!empty($employeeId)) $overtimes->where('employee_id', $employeeId);
+            }
+
+            $overtimes = $overtimes->get();
+            $filteredData = $overtimes->filter(function ($item) use ($status) {
+                return $item['employee']['is_daily'] == $status;
+            });
+
+            if (count($filteredData) < 1) {
+                return new ApiResponse('error', 200, 'Data lembur tidak ditemukan ! ');
+            }
+
+            return new ApiResponse('success', 200, 'OK', [
+                'count'         => count($filteredData->values()),
+                'overtime_id'   => $filteredData->values(),
+                'overtime'      => $filteredData->values()
+            ]);
+        } catch (Exception $e) {
+            return new ApiResponse('error', 400, $e->getMessage());
+        }
+    }
+
+    public function lateHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $lates = Attendance::whereBetween('attendance_date', [$startDate, $endDate])->where('is_late', 1);
+            $status = 0;
+            if ($request->has('status')) {
+                $statusReq = $request->query('status');
+                if ($statusReq == 1) $status = $statusReq;
+            }
+
+            if ($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                if (!empty($branchCode)) $lates->where('branch_attendance', $branchCode);
+            }
+
+            if ($request->has('employee_id')) {
+                $employeeId = $request->query('employee_id');
+                if (!empty($employeeId)) $lates->where('employee_id', $employeeId);
+            }
+
+            $lates = $lates->get();
+            $filteredData = $lates->filter(function ($item) use ($status) {
+                return $item['employee']['is_daily'] == $status;
+            });
+
+            if (count($filteredData) < 1) {
+                return new ApiResponse('error', 200, 'Data terlambat tidak ditemukan ! ');
+            }
+
+            return new ApiResponse('success', 200, 'OK', [
+                'count'         => count($filteredData->values()),
+                'late'    => $filteredData->values()
+            ]);
+        } catch (Exception $e) {
+            return new ApiResponse('error', 400, $e->getMessage());
+        }
+    }
+
+    public function notAbsentHomeHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $notAbsentHomes = Attendance::whereBetween('attendance_date', [$startDate, $endDate])->where('clock_out', null);
+            $status = 0;
+            if ($request->has('status')) {
+                $statusReq = $request->query('status');
+                if ($statusReq == 1) $status = $statusReq;
+            }
+            if ($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                if (!empty($branchCode)) $notAbsentHomes->where('branch_attendance', $branchCode);
+            }
+            if ($request->has('employee_id')) {
+                $employeeId = $request->query('employee_id');
+                if (!empty($employeeId)) $notAbsentHomes->where('employee_id', $employeeId);
+            }
+            $notAbsentHomes = $notAbsentHomes->get();
+
+            $filteredData = $notAbsentHomes->filter(function ($item) use ($status) {
+                return $item['employee']['is_daily'] == $status;
+            });
+
+            if (count($filteredData) < 1) {
+                return new ApiResponse('error', 200, 'Data tidak absen pulang tidak ditemukan ! ');
+            }
+
+            return new ApiResponse('success', 200, 'OK', [
+                'count'              => count($filteredData->values()),
+                'not_absent_home'    => $filteredData->values()
+            ]);
+        } catch (Exception $e) {
+            return new ApiResponse('error', 400, $e->getMessage());
+        }
+    }
+
+    public function permitHistory($startdate, $endDate, Request $request)
+    {
+        try {
+            $permits = PermitApplication::where(function ($query) use ($startdate, $endDate) {
+                $query->whereBetween('permit_start_date', [$startdate, $endDate])
+                    ->orWhereBetween('permit_end_date', [$startdate, $endDate])
+                    ->orWhere(function ($query) use ($startdate, $endDate) {
+                        $query->where('permit_start_date', '<=', $startdate)
+                            ->where('permit_end_date', '>=', $endDate);
+                    });
+            })
+                ->where('approved_status', 5);
+
+            if ($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                if (!empty($branchCode)) $permits->where('permit_branch', $branchCode);
+            }
+
+            if ($request->has('employee_id')) {
+                $employeeId = $request->query('employee_id');
+                if (!empty($employeeId)) $permits->where('employee_id', $employeeId);
+            }
+
+            $permits = $permits->get();
+            if ($request->has('dept_id')) {
+                $deptId = $request->query('dept_id');
+                if (!empty($deptId)) {
+                    $permits = $permits->filter(function ($item) use ($deptId) {
+                        return $item['employee']['department_id'] == $deptId;
+                    });
+                }
+            }
+
+            if (count($permits) < 1) {
+                return new ApiResponse('error', 200, 'Data izin tidak ditemukan ! ');
+            }
+
+            return new ApiResponse('success', 200, 'OK', [
+                'count'     => count($permits),
+                'permits'   => $permits
+            ]);
+        } catch (Exception $e) {
+            return new ApiResponse('error', 400, $e->getMessage());
+        }
+    }
+
+    public function sickHistory($startdate, $endDate, Request $request)
+    {
+        try {
+            $sicks = SickApplication::where(function ($query) use ($startdate, $endDate) {
+                $query->whereBetween(
+                    'sick_start_date',
+                    [$startdate, $endDate]
+                )
+                    ->orWhereBetween('sick_end_date', [$startdate, $endDate])
+                    ->orWhere(function ($query) use ($startdate, $endDate) {
+                        $query->where('sick_start_date', '<=', $startdate)
+                            ->where('sick_end_date', '>=', $endDate);
+                    });
+            })
+                ->where('approved_status', 5);
+
+            if ($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                if (!empty($branchCode)) $sicks->where('sick_branch', $branchCode);
+            }
+
+            if ($request->has('employee_id')) {
+                $employeeId = $request->query('employee_id');
+                if (!empty($employeeId)) $sicks->where('employee_id', $employeeId);
+            }
+
+            $sicks = $sicks->get();
+            if ($request->has('dept_id')) {
+                $deptId = $request->query('dept_id');
+                if (!empty($deptId)) {
+                    $sicks = $sicks->filter(function ($item) use ($deptId) {
+                        return $item['employee']['department_id'] == $deptId;
+                    });
+                }
+            }
+
+            if (count($sicks) < 1) {
+                return new ApiResponse('error', 200, 'Data sakit tidak ditemukan ! ');
+            }
+
+            return new ApiResponse('success', 200, 'OK', [
+                'count'     => count($sicks),
+                'sicks'   => $sicks
+            ]);
+        } catch (Exception $e) {
+            return new ApiResponse('error', 400, $e->getMessage());
+        }
+    }
+
+    public function leaveHistory($startdate, $endDate, Request $request)
+    {
+        try {
+            $leaves = LeaveApplication::where(function ($query) use ($startdate, $endDate) {
+                $query->whereBetween(
+                    'leave_start_date',
+                    [$startdate, $endDate]
+                )
+                    ->orWhereBetween('leave_end_date', [$startdate, $endDate])
+                    ->orWhere(function ($query) use ($startdate, $endDate) {
+                        $query->where('leave_start_date', '<=', $startdate)
+                            ->where('leave_end_date', '>=', $endDate);
+                    });
+            })
+                ->where('approved_status', 5);
+
+            if ($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                if (!empty($branchCode)) $leaves->where('leave_branch', $branchCode);
+            }
+
+            if ($request->has('employee_id')) {
+                $employeeId = $request->query('employee_id');
+                if (!empty($employeeId)) $leaves->where('employee_id', $employeeId);
+            }
+
+            $leaves = $leaves->get();
+            if ($request->has('dept_id')) {
+                $deptId = $request->query('dept_id');
+                if (!empty($deptId)) {
+                    $leaves = $leaves->filter(function ($item) use ($deptId) {
+                        return $item['employee']['department_id'] == $deptId;
+                    });
+                }
+            }
+
+            if (count($leaves) < 1) {
+                return new ApiResponse('error', 200, 'Data cuti tidak ditemukan ! ');
+            }
+
+            return new ApiResponse('success', 200, 'OK', [
+                'count'     => count($leaves),
+                'leaves'   => $leaves
+            ]);
+        } catch (Exception $e) {
+            return new ApiResponse('error', 400, $e->getMessage());
+        }
+    }
+
+    public function notPresentHistory($startDate, $endDate, Request $request)
+    {
+        try {
+
+            $branch = $request->query('branch_attendance');
+            $empID = $request->query('employee_id');
+
+            // Ambil data kehadiran
+            $attendancesQuery = Attendance::whereBetween('attendance_date', [$startDate, $endDate])
+                ->whereIn('clock_in_status', [1, 2, 3, 5]);
+
+            $attendances = $attendancesQuery->select('attendance_date', 'employee_id', 'branch_attendance')
+                ->get()
+                ->groupBy('attendance_date');
+
+            // Ambil data izin
+            $permits = PermitApplication::where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('permit_start_date', [$startDate, $endDate])
+                    ->orWhereBetween('permit_end_date', [$startDate, $endDate])
+                    ->orWhere(function ($query) use ($startDate, $endDate) {
+                        $query->where(
+                            'permit_start_date',
+                            '<=',
+                            $startDate
+                        )->where(
+                            'permit_end_date',
+                            '>=',
+                            $endDate
+                        );
+                    });
+            })->where('approved_status', 5)
+                ->where(function ($query) {
+                    $query->where('permit_type_id', '!=', 10)
+                        ->orWhereNull('permit_type_id');
+                })
+                ->select('permit_start_date', 'permit_end_date', 'employee_id')
+                ->get();
+            // Ambil data cuti
+            $leaves = LeaveApplication::where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('leave_start_date', [$startDate, $endDate])
+                    ->orWhereBetween('leave_end_date', [$startDate, $endDate])
+                    ->orWhere(function ($query) use ($startDate, $endDate) {
+                        $query->where('leave_start_date', '<=', $startDate)
+                            ->where(
+                                'leave_end_date',
+                                '>=',
+                                $endDate
+                            );
+                    });
+            })->where('approved_status', 5)
+                ->select('leave_start_date', 'leave_end_date', 'employee_id')
+                ->get();
+
+            // Ambil data sakit
+            $sicks = SickApplication::where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('sick_start_date', [$startDate, $endDate])
+                    ->orWhereBetween('sick_end_date', [$startDate, $endDate])
+                    ->orWhere(function ($query) use ($startDate, $endDate) {
+                        $query->where('sick_start_date', '<=', $startDate)
+                            ->where('sick_end_date', '>=', $endDate);
+                    });
+            })->where('approved_status', 5)
+                ->select('sick_start_date', 'sick_end_date', 'employee_id')
+                ->get();
+
+            // Inisialisasi hasil akhir
+            $result = [];
+
+            // Iterasi melalui setiap tanggal dari $startDate hingga $endDate
+            $currentDate = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
+
+            while ($currentDate->lte($end)) {
+                $dateString = $currentDate->toDateString();
+                $result[$dateString] = [];
+                $currentDate->addDay();
+            }
+            // Proses data kehadiran
+            foreach ($attendances as $date => $attendanceList) {
+                $result[$date] = $attendanceList->pluck('employee_id')->toArray();
+            }
+
+            // Proses data izin
+            foreach ($permits as $permit) {
+                $start = Carbon::parse($permit->permit_start_date)->max(Carbon::parse($startDate));
+                $end = Carbon::parse($permit->permit_end_date)->min(Carbon::parse($endDate));
+
+                for ($date = $start; $date->lte($end); $date->addDay()) {
+                    $dateString = $date->toDateString();
+                    if (!isset($result[$dateString])) {
+                        $result[$dateString] = [];
+                    }
+                    $result[$dateString][] = $permit->employee_id;
+                }
+            }
+
+            // Proses data cuti
+            foreach ($leaves as $leave) {
+                $start = Carbon::parse($leave->leave_start_date)->max(Carbon::parse($startDate));
+                $end = Carbon::parse($leave->leave_end_date)->min(Carbon::parse($endDate));
+
+                for ($date = $start; $date->lte($end); $date->addDay()) {
+                    $dateString = $date->toDateString();
+                    if (!isset($result[$dateString])) {
+                        $result[$dateString] = [];
+                    }
+                    $result[$dateString][] = $leave->employee_id;
+                }
+            }
+
+            // Proses data sakit
+            foreach ($sicks as $sick) {
+                $start = Carbon::parse($sick->sick_start_date)->max(Carbon::parse($startDate));
+                $end = Carbon::parse($sick->sick_end_date)->min(Carbon::parse($endDate));
+
+                for ($date = $start; $date->lte($end); $date->addDay()) {
+                    $dateString = $date->toDateString();
+                    if (!isset($result[$dateString])) {
+                        $result[$dateString] = [];
+                    }
+                    $result[$dateString][] = $sick->employee_id;
+                }
+            }
+
+
+            // Menghapus duplikat ID karyawan di setiap tanggal
+            foreach ($result as $date => $employeeIds) {
+                $result[$date] = array_unique($employeeIds);
+
+                // Ambil karyawan yang tidak hadir dengan memanggil fungsi getEmployeeNotAbsent
+                $notAbsentEmployees = $this->getEmployeeNotAbsent($date, $employeeIds);
+
+                // Menambahkan hanya ID karyawan yang tidak hadir ke hasil akhir
+                foreach ($notAbsentEmployees as $employee) {
+                    if (!in_array($employee['id'], $result[$date])) {
+                        $result[$date][] = $employee['id'];
+                    }
+                }
+
+                // Hapus ID karyawan yang sudah ada dalam data kehadiran, izin, cuti, atau sakit
+                $result[$date] = array_diff($result[$date], $employeeIds);
+
+                // Cari absen terakhir sebelum tidak hadir dan modifikasi array hasil akhir
+                $finalResult = [];
+                foreach ($result[$date] as $employeeId) {
+                    $presensiTerakhir = Attendance::where('employee_id', $employeeId)
+                        ->where('attendance_date', '<', $date)
+                        ->orderBy('attendance_date', 'desc')
+                        ->first();
+
+                    if ($presensiTerakhir && (!$branch || $presensiTerakhir->branch_attendance == $branch)) {
+                        $name = $this->getEmployee($employeeId)['data']['fullname'];
+                        $jobTitle = $this->getEmployee($employeeId)['data']['job_title']['name'];
+                        $finalResult[] = [
+                            'employee_id' => $employeeId,
+                            'employee_name' => $name,
+                            'job_title' => $jobTitle,
+                            'branch_attendance' => $presensiTerakhir->branch_attendance
+                        ];
+                    }
+                }
+
+                // Filter finalResult berdasarkan employee_id jika empID ada
+                if ($empID) {
+                    $finalResult = array_filter($finalResult, function ($item) use ($empID) {
+                        return $item['employee_id'] == $empID;
+                    });
+                }
+
+                $result[$date] = $finalResult;
+            }
+
+            return new ApiResponse(
+                $this->messageSuccess,
+                200,
+                'OK',
+                $result
+            );
+        } catch (Exception $e) {
+            return new ApiResponse(
+                $this->messageError,
+                400,
+                $e->getMessage()
+            );
+        }
+    }
+
+
+    //=========================================
 
 
     //=========================================

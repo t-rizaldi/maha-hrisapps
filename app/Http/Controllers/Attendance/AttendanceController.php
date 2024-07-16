@@ -43,6 +43,60 @@ class AttendanceController extends Controller
         }
     }
 
+    /*========Photo Attendance==========*/
+    // Store
+    public function storeAttendance(Request $request)
+    {
+        try {
+            $httpRequest = Http::asMultipart();
+
+            if($request->hasFile('attendance_photo')) {
+                $httpRequest = $httpRequest->attach(
+                    'attendance_photo', file_get_contents($request->file('attendance_photo')->getRealPath()), $request->file('attendance_photo')->getClientOriginalName()
+                );
+            }
+
+            $response = $httpRequest->post("$this->api", [
+                'employee_id'   => $request->employee_id,
+                'attendance_date'   => $request->attendance_date,
+                'attendance_time'   => $request->attendance_time,
+                'attendance_location'   => $request->attendance_location,
+                'attendance_branch'   => $request->attendance_branch,
+            ]);
+
+            return response()->json($response->json(), $response->status());
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    /*=================================
+            Monitoring Attendance
+    =================================*/
+
+    public function getTodayStatistic()
+    {
+        try {
+            $responseData = $this->client->get("$this->api/today-statistic");
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+            return response()->json([$response], $statusCode);
+        }
+    }
+
     public function attendanceHistory($startDate, $endDate, Request $request)
     {
         try {
@@ -77,34 +131,219 @@ class AttendanceController extends Controller
         }
     }
 
-    /*========Photo Attendance==========*/
-    // Store
-    public function storeAttendance(Request $request)
+    public function overtimeHistory($startDate, $endDate, Request $request)
     {
         try {
-            $httpRequest = Http::asMultipart();
+            $params = [];
 
-            if($request->hasFile('attendance_photo')) {
-                $httpRequest = $httpRequest->attach(
-                    'attendance_photo', file_get_contents($request->file('attendance_photo')->getRealPath()), $request->file('attendance_photo')->getClientOriginalName()
-                );
+            if ($request->has('status')) {
+                $params['query']['status'] = $request->query('status');
             }
 
-            $response = $httpRequest->post("$this->api", [
-                'employee_id'   => $request->employee_id,
-                'attendance_date'   => $request->attendance_date,
-                'attendance_time'   => $request->attendance_time,
-                'attendance_location'   => $request->attendance_location,
-            ]);
+            if ($request->has('branch_code')) {
+                $params['query']['branch_code'] = $request->query('branch_code');
+            }
 
-            return response()->json($response->json(), $response->status());
+            if ($request->has('employee_id')) {
+                $params['query']['employee_id'] = $request->query('employee_id');
+            }
 
+            $responseData = $this->client->get("$this->api/history/overtime/$startDate/$endDate", $params);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
         } catch (ClientException $e) {
             $responseData = $e->getResponse();
             $statusCode = $responseData->getStatusCode();
             $body = $responseData->getBody()->getContents();
             $response = json_decode($body);
+            return response()->json([$response], $statusCode);
+        }
+    }
 
+    public function lateHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $params = [];
+
+            if ($request->has('status')) {
+                $params['query']['status'] = $request->query('status');
+            }
+
+            if ($request->has('branch_code')) {
+                $params['query']['branch_code'] = $request->query('branch_code');
+            }
+
+            if ($request->has('employee_id')) {
+                $params['query']['employee_id'] = $request->query('employee_id');
+            }
+
+            $responseData = $this->client->get("$this->api/history/late/$startDate/$endDate", $params);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function notAbsentHomeHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $params = [];
+
+            if ($request->has('status')) {
+                $params['query']['status'] = $request->query('status');
+            }
+
+            if ($request->has('branch_code')) {
+                $params['query']['branch_code'] = $request->query('branch_code');
+            }
+
+            if ($request->has('employee_id')) {
+                $params['query']['employee_id'] = $request->query('employee_id');
+            }
+
+            $responseData = $this->client->get("$this->api/history/not_absent_home/$startDate/$endDate", $params);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function permitHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $params = [];
+
+            if ($request->has('dept_id')) {
+                $params['query']['dept_id'] = $request->query('dept_id');
+            }
+
+            if ($request->has('branch_code')) {
+                $params['query']['branch_code'] = $request->query('branch_code');
+            }
+
+            if ($request->has('employee_id')) {
+                $params['query']['employee_id'] = $request->query('employee_id');
+            }
+
+            $responseData = $this->client->get("$this->api/history/permit/$startDate/$endDate", $params);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function sickHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $params = [];
+
+            if ($request->has('dept_id')) {
+                $params['query']['dept_id'] = $request->query('dept_id');
+            }
+
+            if ($request->has('branch_code')) {
+                $params['query']['branch_code'] = $request->query('branch_code');
+            }
+
+            if ($request->has('employee_id')) {
+                $params['query']['employee_id'] = $request->query('employee_id');
+            }
+
+            $responseData = $this->client->get("$this->api/history/sick/$startDate/$endDate", $params);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function leaveHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $params = [];
+
+            if ($request->has('dept_id')) {
+                $params['query']['dept_id'] = $request->query('dept_id');
+            }
+
+            if ($request->has('branch_code')) {
+                $params['query']['branch_code'] = $request->query('branch_code');
+            }
+
+            if ($request->has('employee_id')) {
+                $params['query']['employee_id'] = $request->query('employee_id');
+            }
+
+            $responseData = $this->client->get("$this->api/history/leave/$startDate/$endDate", $params);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function notAbsentHistory($startDate, $endDate, Request $request)
+    {
+        try {
+            $params = [];
+
+            if ($request->has('branch_attendance')) {
+                $params['query']['branch_attendance'] = $request->query('branch_attendance');
+            }
+
+            if ($request->has('employee_id')) {
+                $params['query']['employee_id'] = $request->query('employee_id');
+            }
+
+            $responseData = $this->client->get("$this->api/history/not_absent/$startDate/$endDate", $params);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
             return response()->json([$response], $statusCode);
         }
     }

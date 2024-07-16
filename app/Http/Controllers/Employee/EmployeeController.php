@@ -811,6 +811,49 @@ class EmployeeController extends Controller
         }
     }
 
+    // SELFIE PHOTO
+    public function storeEmployeePhoto(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'employee_id'       => 'required',
+                'photo'             => 'required|image|file|max:5120',
+            ]);
+
+            if($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            $httpRequest = Http::asMultipart();
+
+            if($request->hasFile('photo')) {
+                $httpRequest = $httpRequest->attach(
+                    'photo', file_get_contents($request->file('photo')->getRealPath()), $request->file('photo')->getClientOriginalName()
+                );
+            }
+
+
+            $response = $httpRequest->post("$this->api/employee-selfie", [
+                'employee_id'   => $request->employee_id
+            ]);
+
+            return response()->json($response->json(), $response->status());
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
     // DOCUMENT
     public function getEmployeeDocument($employeeId)
     {
@@ -858,15 +901,17 @@ class EmployeeController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'employee_id'   => 'required',
-                'photo'         => 'image|file|max:5120',
-                'ktp'           => 'mimes:pdf|file|max:5120',
-                'kk'            => 'mimes:pdf|file|max:5120',
-                'certificate'   => 'mimes:pdf|file|max:5120',
-                'bank_account'  => 'mimes:pdf|file|max:5120',
-                'npwp'          => 'mimes:pdf|file|max:5120',
-                'bpjs_ktn'      => 'mimes:pdf|file|max:5120',
-                'bpjs_kes'      => 'mimes:pdf|file|max:5120',
+                'employee_id'       => 'required',
+                'photo'             => 'image|file|max:5120',
+                'ktp'               => 'mimes:pdf|file|max:5120',
+                'kk'                => 'mimes:pdf|file|max:5120',
+                'certificate'       => 'mimes:pdf|file|max:5120',
+                'grade_transcript'  => 'mimes:pdf|file|max:5120',
+                'certificate_skill' => 'mimes:pdf|file|max:5120',
+                'bank_account'      => 'mimes:pdf|file|max:5120',
+                'npwp'              => 'mimes:pdf|file|max:5120',
+                'bpjs_ktn'          => 'mimes:pdf|file|max:5120',
+                'bpjs_kes'          => 'mimes:pdf|file|max:5120',
             ]);
 
             if($validator->fails()) {
@@ -878,7 +923,7 @@ class EmployeeController extends Controller
                 ], 400);
             }
 
-
+            $httpRequest = Http::asMultipart();
 
             if($request->hasFile('photo')) {
                 $httpRequest = $httpRequest->attach(
@@ -904,12 +949,23 @@ class EmployeeController extends Controller
                 );
             }
 
+            if($request->hasFile('grade_transcript')) {
+                $httpRequest = $httpRequest->attach(
+                    'grade_transcript', file_get_contents($request->file('grade_transcript')->getRealPath()), $request->file('grade_transcript')->getClientOriginalName()
+                );
+            }
+
+            if($request->hasFile('certificate_skill')) {
+                $httpRequest = $httpRequest->attach(
+                    'certificate_skill', file_get_contents($request->file('certificate_skill')->getRealPath()), $request->file('certificate_skill')->getClientOriginalName()
+                );
+            }
+
             if($request->hasFile('bank_account')) {
                 $httpRequest = $httpRequest->attach(
                     'bank_account', file_get_contents($request->file('bank_account')->getRealPath()), $request->file('bank_account')->getClientOriginalName()
                 );
             }
-
 
             if($request->hasFile('npwp')) {
                 $httpRequest = $httpRequest->attach(
@@ -1028,10 +1084,56 @@ class EmployeeController extends Controller
         }
     }
 
-    public function updateEmployeeSkill($employeeId, Request $request)
+    public function storeEmployeeSkill($employeeId, Request $request)
     {
         try {
             $responseData = $this->client->post("$this->api/employee-skill/$employeeId", [
+                'json'  => $request->all()
+            ]);
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function updateEmployeeSkill($employeeId, Request $request)
+    {
+        try {
+            $responseData = $this->client->put("$this->api/employee-skill/$employeeId", [
+                'json'  => $request->all()
+            ]);
+
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function deleteEmployeeSkill(Request $request)
+    {
+        try {
+            $responseData = $this->client->delete("$this->api/employee-skill", [
                 'json'  => $request->all()
             ]);
 
@@ -1358,6 +1460,34 @@ class EmployeeController extends Controller
     {
         try {
             $responseData = $this->client->put("$this->api/reject-data-phase-two", [
+                'json'  => $request->all()
+            ]);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    // ========================================
+
+    /*================================
+                SETTINGS
+    ================================*/
+
+    public function employeeOvertimeSetting(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/setting/overtime", [
                 'json'  => $request->all()
             ]);
             $statusCode = $responseData->getStatusCode();

@@ -1,12 +1,17 @@
 <?php
 
 use App\Http\Controllers\Attendance\AttendanceController;
+use App\Http\Controllers\Attendance\HolidayController;
+use App\Http\Controllers\Attendance\LeaveController;
+use App\Http\Controllers\Attendance\PermitController;
+use App\Http\Controllers\Attendance\SickController;
 use App\Http\Controllers\Employee\BankController;
 use App\Http\Controllers\Employee\BranchController;
 use App\Http\Controllers\Employee\DepartmentController;
 use App\Http\Controllers\Employee\EmployeeController;
 use App\Http\Controllers\Employee\JobTitleController;
 use App\Http\Controllers\Employee\SkillController;
+use App\Http\Controllers\Employee\WorkerController;
 use App\Http\Controllers\Employee\WorkHourController;
 use App\Http\Controllers\Letter\CategoryController;
 use App\Http\Controllers\Letter\LetterController;
@@ -38,8 +43,19 @@ Route::controller(UserController::class)->group(function() {
 
 // EMPLOYEE
 Route::prefix('employee')->group(function() {
-    Route::name('employee')->group(function() {
+    // WORKER
+    Route::prefix('/worker')->group(function() {
+        Route::controller(WorkerController::class)->group(function() {
+            Route::middleware(VerifyToken::class)->group(function() {
+                Route::get('/', 'getWorker');
+                Route::post('/', 'storeWorker');
+                Route::post('/update', 'updateWorker');
+                Route::delete('/', 'deleteWorker');
+            });
+        });
+    });
 
+    Route::name('employee')->group(function() {
         Route::controller(EmployeeController::class)->group(function() {
             Route::post('/register', 'register')->name('.register');
             Route::post('/login', 'login')->name('.login');
@@ -85,6 +101,8 @@ Route::prefix('employee')->group(function() {
                 //BANK
                 Route::get('/employee-bank/{data}', 'getEmployeeBank')->name('.bank');
                 Route::post('/employee-bank', 'storeEmployeeBank')->name('.bank.store');
+                // SELFIE PHOTO
+                Route::post('/employee-selfie', 'storeEmployeePhoto')->name('.selfie.store');
                 // DOCUMENT
                 Route::get('/employee-document/{data}', 'getEmployeeDocument')->name('.document');
                 Route::post('/employee-document', 'storeEmployeeDocument')->name('.document.store');
@@ -95,7 +113,9 @@ Route::prefix('employee')->group(function() {
                 Route::post('/employee-signature/{data}', 'createEmployeeSignature')->name('.signature.store');
                 // SKILL
                 Route::get('/employee-skill/{data}', 'getEmployeeSkill')->name('.skill');
-                Route::post('/employee-skill/{data}', 'updateEmployeeSkill')->name('.skill.update');
+                Route::post('/employee-skill/{data}', 'storeEmployeeSkill')->name('.skill.store');
+                Route::put('/employee-skill/{data}', 'updateEmployeeSkill')->name('.skill.update');
+                Route::delete('/employee-skill', 'deleteEmployeeSkill')->name('.skill.delete');
                 // WORK HOUR
                 Route::get('/employee-work-hour/{data}', 'getEmployeeWorkHour')->name('.work-hour');
                 Route::post('/employee-work-hour', 'createEmployeeWorkHour')->name('.work-hour.create');
@@ -111,6 +131,13 @@ Route::prefix('employee')->group(function() {
                         Route::get('/{data1}/{data2}', 'getContractJobdesk');
                         Route::post('/{data1}', 'createContractJobdesk')->name('.store');
                         Route::delete('/{data1}/{data2}', 'deleteContractJobdesk')->name('.delete');
+                    });
+                });
+
+                // SETTING
+                Route::prefix('setting')->group(function() {
+                    Route::name('setting')->group(function() {
+                        Route::post('overtime', 'employeeOvertimeSetting')->name('.overtime');
                     });
                 });
             });
@@ -277,11 +304,11 @@ Route::prefix('region')->group(function() {
 // ATTENDANCE
 Route::prefix('attendance')->group(function() {
     Route::name('attendance')->group(function() {
+
         Route::controller(AttendanceController::class)->group(function() {
             Route::middleware(VerifyToken::class)->group(function() {
                 // Attendance
                 Route::get('/employee-history/{data}/{data1}/{data2}', 'employeeAttendanceHistory')->name('.employee-history');
-                Route::get('/history/{data}/{data1}', 'attendanceHistory')->name('.history');
                 Route::post('/', 'storeAttendance')->name('.store');
                 // Overtime
                 Route::prefix('overtime')->group(function() {
@@ -304,6 +331,95 @@ Route::prefix('attendance')->group(function() {
                         });
                     });
                 });
+
+                // Monitoring / history
+                Route::prefix('monitoring')->group(function () {
+                    Route::get('/today-statistic', 'getTodayStatistic');
+                    Route::get('/history/{data}/{data1}', 'attendanceHistory')->name('.history');
+                    Route::get('/history/overtime/{data}/{data1}', 'overtimeHistory');
+                    Route::get('/history/late/{data}/{data1}', 'lateHistory');
+                    Route::get('/history/not_absent_home/{data}/{data1}', 'notAbsentHomeHistory');
+                    Route::get('/history/permit/{data}/{data1}', 'permitHistory');
+                    Route::get('/history/sick/{data}/{data1}', 'sickHistory');
+                    Route::get('/history/leave/{data}/{data1}', 'leaveHistory');
+                    Route::get('/history/not_absent/{data}/{data1}', 'notAbsentHistory');
+
+                });
+            });
+        });
+    });
+
+    // HOLIDAY
+    Route::prefix('holiday')->group(function() {
+        Route::controller(HolidayController::class)->group(function() {
+            Route::middleware(VerifyToken::class)->group(function() {
+                Route::get('/', 'getHolidays');
+                Route::get('/{data}', 'getHolidaysById');
+                Route::get('/status/{data}', 'getHolidaysByStatus');
+                Route::get('/national/{data}', 'getNationalHolidays');
+                Route::post('/', 'storeHoliday');
+                Route::delete('/{data}', 'deleteHoliday');
+            });
+        });
+    });
+
+    // PERMIT TYPE
+    Route::prefix('permit')->group(function () {
+        Route::controller(PermitController::class)->group(function () {
+            Route::middleware(VerifyToken::class)->group(function () {
+                Route::prefix('type')->group(function () {
+                    Route::get('/all', 'getAllPermitType');
+                    Route::get('/{id}', 'getPermitTypeById');
+                    Route::get('/', 'getPermitByType');
+                    Route::post('/', 'storePermitType');
+                    Route::put('/{id}', 'updatePermitType');
+                    Route::delete('/{id}', 'deletePermitType');
+                });
+
+                // PERMIT
+                Route::get('/', 'getAllPermit');
+                Route::get('/{id}', 'getPermitById');
+                Route::get('/employee/{id}', 'getPermitByEmployeeID');
+                Route::get('/list-by-approver/{id}', 'getAllPermitByApprover');
+                Route::post('/', 'storePermit');
+                Route::post('/update/{id}', 'updatePermit');
+                Route::post('/approve', 'approvePermit');
+                Route::post('/reject', 'rejectPermit');
+                Route::delete('/{id}', 'deletePermit');
+            });
+        });
+    });
+
+    // SICK
+    Route::prefix('sick')->group(function () {
+        Route::controller(SickController::class)->group(function () {
+            Route::middleware(VerifyToken::class)->group(function () {
+                Route::get('/', 'getAllSick');
+                Route::get('/{id}', 'getSickByID');
+                Route::get('/employee/{id}', 'getSickByEmployeeID');
+                Route::get('/list-by-approver/{id}', 'getAllSickByApprover');
+                Route::post('/', 'storeSick');
+                Route::post('/update/{id}', 'updateSick');
+                Route::post('/approve', 'approveSick');
+                Route::post('/reject', 'rejectSick');
+                Route::delete('/{id}', 'deleteSick');
+            });
+        });
+    });
+
+    // LEAVE
+    Route::prefix('leave')->group(function () {
+        Route::controller(LeaveController::class)->group(function () {
+            Route::middleware(VerifyToken::class)->group(function () {
+                Route::get('/', 'getAllLeave');
+                Route::get('/{id}', 'getLeaveByID');
+                Route::get('/employee/{id}', 'getLeaveByEmployeeID');
+                Route::get('/list-by-approver/{id}', 'getAllLeaveByApprover');
+                Route::post('/', 'storeLeave');
+                Route::post('/update/{id}', 'updateLeave');
+                Route::post('/approve', 'approveLeave');
+                Route::post('/reject', 'rejectLeave');
+                Route::delete('/{id}', 'deleteLeave');
             });
         });
     });

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Attendance\AttendanceController;
+use App\Http\Controllers\Attendance\AttendanceWorkerController;
 use App\Http\Controllers\Attendance\HolidayController;
 use App\Http\Controllers\Attendance\LeaveController;
 use App\Http\Controllers\Attendance\PermitController;
@@ -48,9 +49,17 @@ Route::prefix('employee')->group(function() {
         Route::controller(WorkerController::class)->group(function() {
             Route::middleware(VerifyToken::class)->group(function() {
                 Route::get('/', 'getWorker');
+                Route::get('/{data}', 'getWorkerById');
                 Route::post('/', 'storeWorker');
                 Route::post('/update', 'updateWorker');
                 Route::delete('/', 'deleteWorker');
+
+                Route::put('/change-status', 'changeStatusWorker');
+
+                // WORK HOUR
+                Route::get('/work-hour/{data}', 'getWorkerWorkHour');
+                Route::post('/work-hour', 'createWorkerWorkHour');
+                Route::delete('/work-hour/{data}', 'deleteWorkerWorkHour');
             });
         });
     });
@@ -70,6 +79,7 @@ Route::prefix('employee')->group(function() {
                 Route::put('/reject-data-phase-two', 'rejectDataPhaseTwo')->name('.reject-data-phase-two');
                 Route::post('/logout', 'logout')->name('.logout');
                 Route::post('/change-password', 'changePassword')->name('.change-password');
+                Route::put('/change-status', 'changeStatusEmployee');
 
                 Route::get('/', 'index');
                 Route::get('/{data}', 'getEmployeeById')->name('.detail');
@@ -345,6 +355,15 @@ Route::prefix('attendance')->group(function() {
                     Route::get('/history/not_absent/{data}/{data1}', 'notAbsentHistory');
 
                 });
+            });
+        });
+    });
+
+    // WORKER
+    Route::prefix('worker')->group(function() {
+        Route::controller(AttendanceWorkerController::class)->group(function() {
+            Route::middleware(VerifyToken::class)->group(function() {
+                Route::post('/', 'storeAttendance');
             });
         });
     });

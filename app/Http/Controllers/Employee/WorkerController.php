@@ -57,6 +57,26 @@ class WorkerController extends Controller
         }
     }
 
+    public function getWorkerById($workerId)
+    {
+        try {
+            $responseData = $this->client->get("$this->api/$workerId");
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
     public function storeWorker(Request $request)
     {
         try {
@@ -131,6 +151,88 @@ class WorkerController extends Controller
             $response = json_decode($body, true);
             return response()->json($response, $statusCode);
 
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function changeStatusWorker(Request $request)
+    {
+        try {
+            $responseData = $this->client->put("$this->api/change-status", [
+                'json'  => $request->all()
+            ]);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    // WORK HOUT
+    public function getWorkerWorkHour($workerID)
+    {
+        try {
+            $responseData = $this->client->get("$this->api/work-hour/$workerID");
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function createWorkerWorkHour(Request $request)
+    {
+        try {
+            $responseData = $this->client->post("$this->api/work-hour", [
+                'json'  => $request->all()
+            ]);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
+
+    public function deleteWorkerWorkHour($workerID)
+    {
+        try {
+            $responseData = $this->client->delete("$this->api/work-hour/$workerID");
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
         } catch (ClientException $e) {
             $responseData = $e->getResponse();
             $statusCode = $responseData->getStatusCode();

@@ -1505,4 +1505,25 @@ class EmployeeController extends Controller
             return response()->json([$response], $statusCode);
         }
     }
+
+    public function changeStatusEmployee(Request $request)
+    {
+        try {
+            $responseData = $this->client->put("$this->api/employee-change-status", [
+                'json'  => $request->all()
+            ]);
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return response()->json($response, $statusCode);
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
 }

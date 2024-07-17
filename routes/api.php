@@ -123,11 +123,17 @@ Route::controller(BankController::class)->group(function() {
 Route::controller(WorkerController::class)->group(function() {
     Route::prefix('worker')->group(function() {
         Route::get('/', 'getWorker');
+        Route::get('/{data}', 'getWorkerById');
         Route::post('/', 'storeWorker');
         Route::post('/update', 'updateWorker');
         Route::delete('/', 'deleteWorker');
 
         Route::put('/change-status', 'changeStatusWorker');
+
+        // WORK HOUR
+        Route::get('/work-hour/{data}', 'getWorkerWorkHour');
+        Route::post('/work-hour', 'createWorkerWorkHour');
+        Route::delete('/work-hour/{data}', 'deleteWorkerWorkHour');
     });
 });
 
@@ -195,6 +201,8 @@ Route::controller(EmployeeController::class)->group(function() {
     Route::post('/employee-confirm-data/{data}', 'employeeConfirmData')->name('employee-confirm-data');
     Route::post('/employee-confirm-contract/{data}', 'employeeConfirmContract')->name('employee-confirm-contract');
 
+    // Status Employee
+    Route::put('/employee-change-status', 'changeStatusEmployee');
 
     // CONTRACT
     Route::prefix('employee-contract')->group(function() {

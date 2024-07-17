@@ -3613,4 +3613,54 @@ class EmployeeController extends Controller
             ], 400);
         }
     }
+
+    public function changeStatusEmployee(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'employee_id' => 'required',
+                'status'    => 'required|in:0,1,2,3,5,6,7,8,9,10,11'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            // Get employee
+            $employee = Employee::with(['contract', 'biodata', 'education', 'family', 'document', 'jobTitle', 'department', 'workHour', 'branch', 'bank'])
+                                ->where('id', $request->employee_id)
+                                ->first();
+
+            if (empty($employee)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            // Update
+            $employee->status = $request->status;
+            $employee->save();
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $employee
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
 }

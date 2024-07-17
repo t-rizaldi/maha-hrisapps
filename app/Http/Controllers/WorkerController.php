@@ -7,6 +7,8 @@ use App\Models\Branch;
 use App\Models\JobTitle;
 use App\Models\Worker;
 use App\Models\WorkerDocument;
+use App\Models\WorkerWorkHour;
+use App\Models\WorkHour;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -61,9 +63,28 @@ class WorkerController extends Controller
         }
     }
 
-    public function getWorkerById(Request $request)
+    public function getWorkerById($workerId)
     {
         try {
+            $worker = Worker::with(['jobTitle', 'branch', 'bank', 'document'])
+                            ->where('id', $workerId)
+                            ->first();
+
+            if(empty($worker)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Pekerja harian tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $worker
+            ], 200);
 
         } catch (Exception $e) {
             return response()->json([
@@ -461,6 +482,226 @@ class WorkerController extends Controller
                 'data'      => $worker
             ], 200);
 
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    //WORK HOUR
+    public function getWorkerWorkHour($workerId)
+    {
+        try {
+            // Get worker
+            $worker = Worker::find($workerId);
+            if (empty($worker)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Pekerja harian tidak ditemukan'
+                ], 200);
+            }
+
+            // Get Work Hour
+            $workHour = WorkerWorkHour::with([
+                            'sundayCode',
+                            'mondayCode',
+                            'tuesdayCode',
+                            'wednesdayCode',
+                            'thursdayCode',
+                            'fridayCode',
+                            'saturdayCode',
+                        ])->where('worker_id', $workerId)->first();
+
+
+            if (empty($workHour)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Jam kerja Pekerja harian tidak ditemukan',
+                    'data'      => []
+                ], 200);
+            }
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $workHour
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function createWorkerWorkHour(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'worker_id'       => 'required'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors()
+                ], 400);
+            }
+
+            // Get worker
+            $worker = Worker::find($request->worker_id);
+
+            if (empty($worker)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Pekerja harian tidak ditemukan !'
+                ], 200);
+            }
+
+            // Work Hour Check
+            $workHourMsg = [];
+
+            // sunday
+            if (!empty($request->sunday)) {
+                $workHour = WorkHour::where('work_hour_code', $request->sunday)->first();
+
+                if (empty($workHour)) {
+                    $workHourMsg['sunday'] = 'Jam kerja tidak ditemukan';
+                }
+            }
+
+            // monday
+            if (!empty($request->monday)) {
+                $workHour = WorkHour::where('work_hour_code', $request->monday)->first();
+
+                if (empty($workHour)) {
+                    $workHourMsg['monday'] = 'Jam kerja tidak ditemukan';
+                }
+            }
+
+            // tuesday
+            if (!empty($request->tuesday)) {
+                $workHour = WorkHour::where('work_hour_code', $request->tuesday)->first();
+
+                if (empty($workHour)) {
+                    $workHourMsg['tuesday'] = 'Jam kerja tidak ditemukan';
+                }
+            }
+
+            // wednesday
+            if (!empty($request->wednesday)) {
+                $workHour = WorkHour::where('work_hour_code', $request->wednesday)->first();
+
+                if (empty($workHour)) {
+                    $workHourMsg['wednesday'] = 'Jam kerja tidak ditemukan';
+                }
+            }
+
+            // thursday
+            if (!empty($request->thursday)) {
+                $workHour = WorkHour::where('work_hour_code', $request->thursday)->first();
+
+                if (empty($workHour)) {
+                    $workHourMsg['thursday'] = 'Jam kerja tidak ditemukan';
+                }
+            }
+
+            // friday
+            if (!empty($request->friday)) {
+                $workHour = WorkHour::where('work_hour_code', $request->friday)->first();
+
+                if (empty($workHour)) {
+                    $workHourMsg['friday'] = 'Jam kerja tidak ditemukan';
+                }
+            }
+
+            // saturday
+            if (!empty($request->saturday)) {
+                $workHour = WorkHour::where('work_hour_code', $request->saturday)->first();
+
+                if (empty($workHour)) {
+                    $workHourMsg['saturday'] = 'Jam kerja tidak ditemukan';
+                }
+            }
+
+            if (!empty($workHourMsg)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => $workHourMsg
+                ], 200);
+            }
+
+            // CREATE
+            $data = [
+                'worker_id'   => $request->worker_id,
+                'sunday'        => $request->sunday,
+                'monday'        => $request->monday,
+                'tuesday'       => $request->tuesday,
+                'wednesday'     => $request->wednesday,
+                'thursday'      => $request->thursday,
+                'friday'        => $request->friday,
+                'saturday'      => $request->saturday,
+            ];
+
+            $workerWorkHour = WorkerWorkHour::updateOrCreate(['worker_id' => $request->worker_id], $data);
+
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK',
+                'data'      => $workerWorkHour
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function deleteWorkerWorkHour($workerId)
+    {
+        try {
+            // Get worker
+            $worker = Worker::find($workerId);
+
+            if (empty($worker)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Pekerja Harian tidak ditemukan'
+                ], 200);
+            }
+
+            // Get Work Hour
+            $workHour = WorkerWorkHour::where('worker_id', $workerId)->first();
+
+            if (empty($workHour)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 204,
+                    'message'   => 'Jam kerja pekerja harian tidak ditemukan !',
+                    'data'      => []
+                ], 200);
+            }
+            workerWorkHour::where('worker_id', $workerId)->delete();
+            return response()->json([
+                'status'    => 'success',
+                'code'      => 200,
+                'message'   => 'OK'
+            ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'status'    => 'error',

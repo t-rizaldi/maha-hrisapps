@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Bank;
+use App\Models\Branch;
 use App\Models\ContractJobdesk;
 use App\Models\Department;
 use App\Models\Employee;
@@ -51,6 +52,8 @@ class EmployeeController extends Controller
             if($request->has('role_id')) {
                 $roleId = $request->query('role_id');
                 if(!empty($roleId)) $employee->where('role_id', $roleId);
+            } else {
+                $employee->whereNot('role_id', 6);
             }
 
             if($request->has('department_code')) {
@@ -62,6 +65,27 @@ class EmployeeController extends Controller
 
                     if(!empty($department)) {
                         $employee->where('department_id', $department->id);
+                    } else {
+                        return response()->json([
+                            'status'    => 'error',
+                            'code'      => 204,
+                            'message'   => 'Employee not found',
+                            'data'      => []
+                        ], 200);
+                    }
+
+                }
+            }
+
+            if($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+
+                if(!empty($branchCode)) {
+
+                    $branch = Branch::where('branch_code', $branchCode)->first();
+
+                    if(!empty($branch)) {
+                        $employee->where('branch_code', $branch->branch_code);
                     } else {
                         return response()->json([
                             'status'    => 'error',

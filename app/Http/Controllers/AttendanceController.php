@@ -74,51 +74,6 @@ class AttendanceController extends BaseController
         }
     */
 
-    // API Mapbox
-    public function checkInZoneAttendance($lat, $long)
-    {
-        try {
-            $responseData = $this->client->get("$this->apiGeocodingMaps/reverse", [
-                'query'     => [
-                    'longitude'     => "$long",
-                    'latitude'      => "$lat",
-                    'language'      => 'id',
-                    'access_token'  => $this->mapsApiKey
-                ]
-            ]);
-
-            $body = $responseData->getBody()->getContents();
-            $response = json_decode($body, true);
-            $areaInZone = ["medan", "deli serdang"];
-
-            if (isset($response['features'][0])) {
-                $area = strtolower($response['features'][0]['properties']['context']['place']['name']);
-                $inZoneCheck = in_array($area, $areaInZone);
-                return $inZoneCheck;
-            }
-
-            return false;
-
-        } catch (ClientException $e) {
-            return false;
-        }
-    }
-
-    // distance
-    public function calculateDistance($branchLat, $branchLong, $attLat, $attLong)
-    {
-        $theta = $branchLong - $attLong;
-        $miles = (sin(deg2rad($branchLat)) * sin(deg2rad($attLat))) + (cos(deg2rad($branchLat)) * cos(deg2rad($attLat)) * cos(deg2rad($theta)));
-        $miles = acos($miles);
-        $miles = rad2deg($miles);
-        $miles = $miles * 60 * 1.1515;
-        $feet = $miles * 5280;
-        $yards = $feet / 3;
-        $kilometers = $miles * 1.609344;
-        $meters = $kilometers * 1000;
-        return $meters;
-    }
-
     public function employeeAttendanceHistory($employeeId, $startDate, $endDate)
     {
         try {
@@ -245,7 +200,7 @@ class AttendanceController extends BaseController
             [$branchLattitude, $branchLongitude] = explode(',', $branch['branch_location']);
 
             // Get Work Hour
-            $dayName = strtolower(date('l'));
+            $dayName = strtolower(date('l', strtotime($attendanceDate)));
             $workHour = $this->getEmployeeWorkHour($employeeId);
 
             if($workHour['status'] == 'error') {

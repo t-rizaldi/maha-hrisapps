@@ -117,6 +117,44 @@ class BaseController extends Controller
         }
     }
 
+    // Get Worker
+    public function getWorker($workerId)
+    {
+        try {
+            $responseData = $this->client->get("$this->apiEmployee/worker/$workerId");
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return $response;
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+
+            return $response;
+        }
+    }
+
+    // Get Worker Work Hour
+    public function getWorkerWorkHour($workerId)
+    {
+        try {
+            $responseData = $this->client->get("$this->apiEmployee/worker/work-hour/$workerId");
+            $body = $responseData->getBody()->getContents();
+
+            $response = json_decode($body, true);
+            return $response;
+
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+
+            return $response;
+        }
+    }
+
     // Get branch
     public function getBranch($code)
     {
@@ -280,5 +318,50 @@ class BaseController extends Controller
                 'message'   => $e->getMessage()
             ], 400);
         }
+    }
+
+    // API Mapbox
+    public function checkInZoneAttendance($lat, $long)
+    {
+        try {
+            $responseData = $this->client->get("$this->apiGeocodingMaps/reverse", [
+                'query'     => [
+                    'longitude'     => "$long",
+                    'latitude'      => "$lat",
+                    'language'      => 'id',
+                    'access_token'  => $this->mapsApiKey
+                ]
+            ]);
+
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body, true);
+            $areaInZone = ["medan", "deli serdang"];
+
+            if (isset($response['features'][0])) {
+                $area = strtolower($response['features'][0]['properties']['context']['place']['name']);
+                $inZoneCheck = in_array($area, $areaInZone);
+                return $inZoneCheck;
+            }
+
+            return false;
+
+        } catch (ClientException $e) {
+            return false;
+        }
+    }
+
+    // distance
+    public function calculateDistance($branchLat, $branchLong, $attLat, $attLong)
+    {
+        $theta = $branchLong - $attLong;
+        $miles = (sin(deg2rad($branchLat)) * sin(deg2rad($attLat))) + (cos(deg2rad($branchLat)) * cos(deg2rad($attLat)) * cos(deg2rad($theta)));
+        $miles = acos($miles);
+        $miles = rad2deg($miles);
+        $miles = $miles * 60 * 1.1515;
+        $feet = $miles * 5280;
+        $yards = $feet / 3;
+        $kilometers = $miles * 1.609344;
+        $meters = $kilometers * 1000;
+        return $meters;
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\AttendanceWorkerController;
 use App\Http\Controllers\PermitController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\LeaveController;
@@ -52,6 +53,12 @@ Route::controller(AttendanceController::class)->group(function() {
         Route::get('/sick/{startDate}/{endDate}', 'sickHistory');
         Route::get('/leave/{startDate}/{endDate}', 'leaveHistory');
         Route::get('/not_absent/{startDate}/{endDate}', 'notPresentHistory');
+    });
+});
+
+Route::controller(AttendanceWorkerController::class)->group(function() {
+    Route::prefix('worker')->group(function() {
+        Route::post('/', 'storeAttendance');
     });
 });
 

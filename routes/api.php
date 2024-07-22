@@ -6,6 +6,7 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\JobTitleController;
+use App\Http\Controllers\ProjectAccountController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\WorkerController;
 use App\Http\Controllers\WorkHourController;
@@ -137,8 +138,24 @@ Route::controller(WorkerController::class)->group(function() {
     });
 });
 
+// PROJECT ACCOUNT
+Route::controller(ProjectAccountController::class)->group(function() {
+    Route::prefix('project-account')->group(function() {
+        Route::put('/change-status', 'changeStatusProjectAccount');
+        Route::put('/change-password', 'changePasswordProjectAccount');
+
+        Route::get('/', 'getProjectAccount');
+        Route::get('/{data}', 'getProjectAccountById');
+        Route::post('/', 'storeProjectAccount');
+        Route::put('/{data}', 'updateProjectAccount');
+        Route::delete('/', 'deleteProjectAccount');
+
+    });
+});
+
 // EMPLOYEE
 Route::controller(EmployeeController::class)->group(function() {
+
     Route::post('/verify-register', 'verifyRegister')->name('verify-register');
     Route::put('/reject-register', 'rejectRegister')->name('reject-register');
     Route::put('/verify-data/{data}', 'verifyData')->name('verify-data');

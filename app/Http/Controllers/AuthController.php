@@ -36,7 +36,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => $validator->errors()
+                    'message'   => $validator->errors(),
+                    'data'      => []
                 ], 400);
             }
 
@@ -47,7 +48,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Branch not found'
+                    'message'   => 'Branch not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -58,7 +60,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Department not found'
+                    'message'   => 'Department not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -69,7 +72,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Job title not found'
+                    'message'   => 'Job title not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -77,7 +81,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => 'job title does not match the department'
+                    'message'   => 'job title does not match the department',
+                    'data'      => []
                 ], 400);
             }
 
@@ -135,7 +140,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => $validator->errors()
+                    'message'   => $validator->errors(),
+                    'data'      => []
                 ], 400);
             }
 
@@ -146,7 +152,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 403,
-                    'message'   => 'email or password wrong'
+                    'message'   => 'email or password wrong',
+                    'data'      => []
                 ], 403);
             }
 
@@ -157,7 +164,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 403,
-                    'message'   => 'email or password wrong'
+                    'message'   => 'email or password wrong',
+                    'data'      => []
                 ], 403);
             }
 
@@ -166,7 +174,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 403,
-                    'message'   => 'Unverified account'
+                    'message'   => 'Unverified account',
+                    'data'      => []
                 ], 403);
             }
 
@@ -174,7 +183,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 403,
-                    'message'   => 'Inactive account'
+                    'message'   => 'Inactive account',
+                    'data'      => []
                 ], 403);
             }
 
@@ -182,7 +192,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'pending',
                     'code'      => 403,
-                    'message'   => 'Silahkan periksa Email lalu Klik Tautan di email untuk memverifikasi akun anda!'
+                    'message'   => 'Silahkan periksa Email lalu Klik Tautan di email untuk memverifikasi akun anda!',
+                    'data'      => []
                 ], 403);
             }
 
@@ -214,7 +225,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => $validator->errors()
+                    'message'   => $validator->errors(),
+                    'data'      => []
                 ], 400);
             }
 
@@ -225,7 +237,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Employee not found'
+                    'message'   => 'Employee not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -234,7 +247,8 @@ class AuthController extends Controller
             return response()->json([
                 'status'    => 'success',
                 'code'      => 200,
-                'message'   => 'Refresh token deleted'
+                'message'   => 'Refresh token deleted',
+                'data'      => []
             ], 200);
         } catch (Exception $e) {
             return response()->json([
@@ -286,9 +300,9 @@ class AuthController extends Controller
             if(empty($refreshToken)) {
                 return response()->json([
                     'status'    => 'error',
-                    'code'      => 204,
+                    'code'      => 403,
                     'message'   => 'Invalid token'
-                ], 200);
+                ], 403);
             }
 
             return response()->json([
@@ -382,7 +396,8 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Karyawan tidak ditemukan'
+                    'message'   => 'Karyawan tidak ditemukan',
+                    'data'      => []
                 ], 200);
             }
 
@@ -391,7 +406,7 @@ class AuthController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 403,
-                    'message'       => 'Kata sandi lama salah',
+                    'message'   => 'Kata sandi lama salah',
                     'data'      => []
                 ], 403);
             }

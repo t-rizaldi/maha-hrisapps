@@ -19,7 +19,8 @@ class BranchController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Branch not found'
+                    'message'   => 'Branch not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -86,7 +87,8 @@ class BranchController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => $validator->errors()
+                    'message'   => $validator->errors(),
+                    'data'      => []
                 ], 400);
             }
 
@@ -129,7 +131,8 @@ class BranchController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Branch not found'
+                    'message'   => 'Branch not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -156,7 +159,8 @@ class BranchController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => $validator->errors()
+                    'message'   => $validator->errors(),
+                    'data'      => []
                 ], 400);
             }
 
@@ -198,7 +202,8 @@ class BranchController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Branch not found'
+                    'message'   => 'Branch not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -210,7 +215,8 @@ class BranchController extends Controller
             return response()->json([
                 'status'    => 'success',
                 'code'      => 200,
-                'message'   => 'OK'
+                'message'   => 'OK',
+                'data'      => []
             ], 200);
         } catch(Exception $e) {
             return response()->json([
@@ -303,7 +309,8 @@ class BranchController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 400,
-                    'message'   => $validator->errors()
+                    'message'   => $validator->errors(),
+                    'data'      => []
                 ], 400);
             }
 
@@ -316,7 +323,8 @@ class BranchController extends Controller
                 return response()->json([
                     'status'    => 'error',
                     'code'      => 204,
-                    'message'   => 'Parent branch not found'
+                    'message'   => 'Parent branch not found',
+                    'data'      => []
                 ], 200);
             }
 
@@ -445,7 +453,8 @@ class BranchController extends Controller
             return response()->json([
                 'status'    => 'success',
                 'code'      => 200,
-                'message'   => 'OK'
+                'message'   => 'OK',
+                'data'      => []
             ], 200);
         } catch(Exception $e) {
             return response()->json([

@@ -209,9 +209,9 @@ class EmployeeController extends Controller
             if ($expirationTimestamp !== null && $expirationTimestamp < $currentTimestamp) {
                 return response()->json([
                     'status'    => 'error',
-                    'code'      => 400,
+                    'code'      => 403,
                     'message'   => 'Refresh token expired'
-                ], 400);
+                ], 403);
             }
 
             // cek email
@@ -220,9 +220,9 @@ class EmployeeController extends Controller
             if($request->email != $tokenData['email']) {
                 return response()->json([
                     'status'    => 'error',
-                    'code'      => 400,
+                    'code'      => 403,
                     'message'   => 'email is not valid'
-                ], 400);
+                ], 403);
             }
 
             // new access token
@@ -292,6 +292,11 @@ class EmployeeController extends Controller
             if($request->has('department_code')) {
                 $departmentCode = $request->query('department_code');
                 $params['query']['department_code'] = $departmentCode;
+            }
+
+            if($request->has('branch_code')) {
+                $branchCode = $request->query('branch_code');
+                $params['query']['branch_code'] = $branchCode;
             }
 
             if($request->has('job_title')) {

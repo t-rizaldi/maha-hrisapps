@@ -11,6 +11,7 @@ use App\Http\Controllers\Employee\BranchController;
 use App\Http\Controllers\Employee\DepartmentController;
 use App\Http\Controllers\Employee\EmployeeController;
 use App\Http\Controllers\Employee\JobTitleController;
+use App\Http\Controllers\Employee\ProjectAccountController;
 use App\Http\Controllers\Employee\SkillController;
 use App\Http\Controllers\Employee\WorkerController;
 use App\Http\Controllers\Employee\WorkHourController;
@@ -60,6 +61,22 @@ Route::prefix('employee')->group(function() {
                 Route::get('/work-hour/{data}', 'getWorkerWorkHour');
                 Route::post('/work-hour', 'createWorkerWorkHour');
                 Route::delete('/work-hour/{data}', 'deleteWorkerWorkHour');
+            });
+        });
+    });
+
+    // PROJECT ACCOUNT
+    Route::prefix('project-account')->group(function() {
+        Route::controller(ProjectAccountController::class)->group(function() {
+            Route::middleware(VerifyToken::class)->group(function() {
+                Route::put('/change-status', 'changeStatusProjectAccount');
+                Route::put('/change-password', 'changePasswordProjectAccount');
+
+                Route::get('/', 'getProjectAccount');
+                Route::get('/{data}', 'getProjectAccountById');
+                Route::post('/', 'storeProjectAccount');
+                Route::put('/{data}', 'updateProjectAccount');
+                Route::delete('/', 'deleteProjectAccount');
             });
         });
     });
@@ -364,6 +381,8 @@ Route::prefix('attendance')->group(function() {
         Route::controller(AttendanceWorkerController::class)->group(function() {
             Route::middleware(VerifyToken::class)->group(function() {
                 Route::post('/', 'storeAttendance');
+                //OVERTIME
+                Route::post('/overtime', 'storeOvertime');
             });
         });
     });

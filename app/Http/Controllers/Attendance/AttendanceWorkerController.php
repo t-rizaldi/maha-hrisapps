@@ -55,4 +55,40 @@ class AttendanceWorkerController extends Controller
             return response()->json([$response], $statusCode);
         }
     }
+
+    public function storeOvertime(Request $request)
+    {
+        try {
+            $httpRequest = Http::asMultipart();
+
+            if ($request->hasFile('overtime_photo')) {
+                $httpRequest = $httpRequest->attach(
+                    'overtime_photo',
+                    file_get_contents($request->file('overtime_photo')->getRealPath()),
+                    $request->file('overtime_photo')->getClientOriginalName()
+                );
+            }
+
+            // $response = $httpRequest->post("$this->api/overtime", [
+            //     'worker_id'             => $request->worker_id,
+            //     'status'               => $request->status,
+            //     'overtime_date'         => $request->overtime_date,
+            //     'overtime_start'         => $request->overtime_start,
+            //     'overtime_finish'        => $request->overtime_finish,
+            //     'overtime_start_location'     => $request->overtime_start_location,
+            //     'overtime_finish_location'    => $request->overtime_finish_location,
+            // ]);
+
+            $response = $httpRequest->post("$this->api/overtime", $request->all());
+
+            return response()->json($response->json(), $response->status());
+        } catch (ClientException $e) {
+            $responseData = $e->getResponse();
+            $statusCode = $responseData->getStatusCode();
+            $body = $responseData->getBody()->getContents();
+            $response = json_decode($body);
+
+            return response()->json([$response], $statusCode);
+        }
+    }
 }

@@ -59,6 +59,7 @@ Route::controller(AttendanceController::class)->group(function() {
 Route::controller(AttendanceWorkerController::class)->group(function() {
     Route::prefix('worker')->group(function() {
         Route::post('/', 'storeAttendance');
+        Route::post('/overtime', 'storeOvertime');
     });
 });
 

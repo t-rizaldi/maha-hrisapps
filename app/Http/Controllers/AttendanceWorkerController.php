@@ -246,4 +246,124 @@ class AttendanceWorkerController extends BaseController
             ], 400);
         }
     }
+
+    public function storeOvertime(Request $request)
+    {
+        try {
+
+            $messages = [
+                'required'                  => ':attribute wajib diisi !',
+                'status.in'                 => 'status harus start atau finish !',
+                'date'                      => ':attribute harus format Y-m-d (2022-01-01) !',
+                'overtime_time.date_format' => ':attribute harus format H:i (18:23) !',
+                'overtime_photo.image'      => ':attribute harus file gambar !'
+            ];
+
+            $validator = Validator::make($request->all(), [
+                'worker_id'             => 'required',
+                'status'                => 'required|in:start,finish',
+                'overtime_date'         => 'required|date',
+                'overtime_time'         => 'required|date_format:H:i',
+                'overtime_location'     => 'required',
+                'overtime_photo'        => 'required|image'
+            ], $messages);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 400,
+                    'message'   => $validator->errors(),
+                    'data'      => []
+                ], 400);
+            }
+
+            $workerData = $this->getWorker($request->worker_id);
+
+            $attendanceWorker = AttendanceWorker::where('worker_id', $request->worker_id)
+                ->where('attendance_date', $request->overtime_date)
+                ->first();
+
+            if ($workerData['status'] == 'error') {
+                return response()->json($workerData, 200);
+            }
+
+            if (empty($attendanceWorker)) {
+                return response()->json([
+                    'status'    => 'error',
+                    'code'      => 404,
+                    'message'   => 'Data absensi tidak ditemukan !',
+                    'data'      => []
+                ], 404);
+            }
+
+            $status = $request->status;
+
+            if ($status == 'start') {
+
+                if (empty($attendanceWorker->clock_out)) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 400,
+                        'message'   => 'Absen pulang terlebih dahulu !',
+                        'data'      => []
+                    ], 400);
+                }
+
+                if (!empty($attendanceWorker->overtime_start)) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 400,
+                        'message'   => 'Lembur mulai sudah ada !',
+                        'data'      => []
+                    ], 400);
+                }
+            }
+
+            if ($status == 'finish') {
+
+                if (empty($attendanceWorker->overtime_start)) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 400,
+                        'message'   => 'Lembur mulai belum ada !',
+                        'data'      => []
+                    ], 400);
+                }
+
+                if (!empty($attendanceWorker->overtime_finish)) {
+                    return response()->json([
+                        'status'    => 'error',
+                        'code'      => 400,
+                        'message'   => 'Lembur selesai sudah ada !',
+                        'data'      => []
+                    ], 400);
+                }
+            }
+
+            $data = [
+                "overtime_$status"                  => $request->overtime_time,
+                "overtime_$status" . "_location"    => $request->overtime_location,
+            ];
+
+            $photoName = $request->overtime_date . "_$status" . "_$request->overtime_time" . "." .  $request->file('overtime_photo')->getClientOriginalExtension();
+            $pathUpload = $request->file('overtime_photo')->storeAs("overtime/worker/$request->worker_id", $photoName);
+            $data["overtime_$status" . "_photo"] = $pathUpload;
+
+            $attendanceWorker->update($data);
+
+            return response()->json([
+                'status' => 'success',
+                'code' => 200,
+                'message' => 'OK',
+                'data' => $attendanceWorker
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'status'    => 'error',
+                'code'      => 400,
+                'message'   => $e->getMessage()
+            ], 400);
+        }
+    }
 }
